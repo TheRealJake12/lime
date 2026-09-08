@@ -12,6 +12,7 @@ ndll/*/*.lib
 ndll/*/hl*
 ndll/*/*.dll
 templates/bin/hl/*
+templates/*
 project/all_objs
 project/obj
 project/vc*.pdb
