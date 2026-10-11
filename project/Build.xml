@@ -275,6 +275,10 @@
 			<file name="src/backend/sdl/SDLGamepad.cpp" />
 			<file name="src/backend/sdl/SDLJoystick.cpp" />
 			<file name="src/backend/sdl/SDLKeyCode.cpp" />
+			<file name="src/backend/sdl/SDLMenu.cpp" />
+			<file name="src/backend/sdl/SDLMenuLinux.cpp" />
+			<file name="src/backend/sdl/SDLMenuMac.mm" if="mac" />
+			<file name="src/backend/sdl/SDLMenuWindows.cpp" />
 			<file name="src/backend/sdl/SDLMutex.cpp" />
 			<file name="src/backend/sdl/SDLSystem.cpp" />
 			<file name="src/backend/sdl/SDLWindow.cpp" />
@@ -356,9 +360,11 @@
 		<file name="src/ui/Haptic.mm" if="ios" />
 		<file name="src/ui/JoystickEvent.cpp" />
 		<file name="src/ui/KeyEvent.cpp" />
+		<file name="src/ui/MenuEvent.cpp" />
 		<file name="src/ui/MouseEvent.cpp" />
 		<file name="src/ui/TextEvent.cpp" />
 		<file name="src/ui/TouchEvent.cpp" />
+		<file name="src/ui/TrayIconEvent.cpp" />
 		<file name="src/ui/WindowEvent.cpp" />
 		<file name="src/utils/ArrayBufferView.cpp" />
 		<file name="src/utils/Bytes.cpp" />
@@ -457,6 +463,7 @@
 				<lib name="wldap32.lib" />
 				<lib name="shell32.lib" />
 				<lib name="comdlg32.lib" />
+				<lib name="comctl32.lib" unless="winrt" />
 				<lib name="setupapi.lib" />
 
 				<lib name="bcrypt.lib" if="LIME_CURL" />
@@ -481,6 +488,7 @@
 
 			<section if="linux">
 
+				<lib name="-ldl" />
 				<lib name="-lpthread" />
 				<lib name="-lrt" />
 
