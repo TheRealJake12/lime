@@ -352,6 +352,26 @@ class NativeCFFI
 
 	@:cffi private static function lime_tray_icon_set_tooltip(handle:Dynamic, tooltip:String):Void;
 
+	@:cffi private static function lime_video_decoder_close(handle:Dynamic):Void;
+
+	@:cffi private static function lime_video_decoder_create():Dynamic;
+
+	@:cffi private static function lime_video_decoder_get_audio_time(handle:Dynamic):Float;
+
+	@:cffi private static function lime_video_decoder_get_frame_info(handle:Dynamic):Dynamic;
+
+	@:cffi private static function lime_video_decoder_is_supported():Bool;
+
+	@:cffi private static function lime_video_decoder_open(handle:Dynamic, path:String, hardwareDecoding:Bool, format:Int):Dynamic;
+
+	@:cffi private static function lime_video_decoder_read_audio(handle:Dynamic, buffer:Dynamic, position:Int, length:Int):Int;
+
+	@:cffi private static function lime_video_decoder_read_frame(handle:Dynamic, buffer:Dynamic, position:Int, length:Int, time:Float):Int;
+
+	@:cffi private static function lime_video_decoder_seek(handle:Dynamic, time:Float, accurate:Bool):Bool;
+
+	@:cffi private static function lime_video_decoder_set_drop_late_frames(handle:Dynamic, value:Bool):Void;
+
 	@:cffi private static function lime_window_alert(handle:Dynamic, message:String, title:String):Void;
 
 	@:cffi private static function lime_window_close(handle:Dynamic):Void;
@@ -1004,6 +1024,24 @@ class NativeCFFI
 		false));
 	private static var lime_tray_icon_set_tooltip = new cpp.Callable<cpp.Object->String->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_tray_icon_set_tooltip",
 		"osv", false));
+	private static var lime_video_decoder_close = new cpp.Callable<cpp.Object->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_video_decoder_close", "ov", false));
+	private static var lime_video_decoder_create = new cpp.Callable<Void->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_video_decoder_create", "o", false));
+	private static var lime_video_decoder_get_audio_time = new cpp.Callable<cpp.Object->Float>(cpp.Prime._loadPrime("lime",
+		"lime_video_decoder_get_audio_time", "od", false));
+	private static var lime_video_decoder_get_frame_info = new cpp.Callable<cpp.Object->cpp.Object>(cpp.Prime._loadPrime("lime",
+		"lime_video_decoder_get_frame_info", "oo", false));
+	private static var lime_video_decoder_is_supported = new cpp.Callable<Void->Bool>(cpp.Prime._loadPrime("lime", "lime_video_decoder_is_supported", "b",
+		false));
+	private static var lime_video_decoder_open = new cpp.Callable<cpp.Object->String->Bool->Int->cpp.Object>(cpp.Prime._loadPrime("lime",
+		"lime_video_decoder_open", "osbio", false));
+	private static var lime_video_decoder_read_audio = new cpp.Callable<cpp.Object->cpp.Object->Int->Int->Int>(cpp.Prime._loadPrime("lime",
+		"lime_video_decoder_read_audio", "ooiii", false));
+	private static var lime_video_decoder_read_frame = new cpp.Callable<cpp.Object->cpp.Object->Int->Int->Float->Int>(cpp.Prime._loadPrime("lime",
+		"lime_video_decoder_read_frame", "ooiidi", false));
+	private static var lime_video_decoder_seek = new cpp.Callable<cpp.Object->Float->Bool->Bool>(cpp.Prime._loadPrime("lime", "lime_video_decoder_seek",
+		"odbb", false));
+	private static var lime_video_decoder_set_drop_late_frames = new cpp.Callable<cpp.Object->Bool->cpp.Void>(cpp.Prime._loadPrime("lime",
+		"lime_video_decoder_set_drop_late_frames", "obv", false));
 	private static var lime_window_alert = new cpp.Callable<cpp.Object->String->String->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_window_alert", "ossv",
 		false));
 	private static var lime_window_close = new cpp.Callable<cpp.Object->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_window_close", "ov", false));
@@ -1451,6 +1489,16 @@ class NativeCFFI
 	private static var lime_tray_icon_set_icon = CFFI.load("lime", "lime_tray_icon_set_icon", 2);
 	private static var lime_tray_icon_set_menu = CFFI.load("lime", "lime_tray_icon_set_menu", 2);
 	private static var lime_tray_icon_set_tooltip = CFFI.load("lime", "lime_tray_icon_set_tooltip", 2);
+	private static var lime_video_decoder_close = CFFI.load("lime", "lime_video_decoder_close", 1);
+	private static var lime_video_decoder_create = CFFI.load("lime", "lime_video_decoder_create", 0);
+	private static var lime_video_decoder_get_audio_time = CFFI.load("lime", "lime_video_decoder_get_audio_time", 1);
+	private static var lime_video_decoder_get_frame_info = CFFI.load("lime", "lime_video_decoder_get_frame_info", 1);
+	private static var lime_video_decoder_is_supported = CFFI.load("lime", "lime_video_decoder_is_supported", 0);
+	private static var lime_video_decoder_open = CFFI.load("lime", "lime_video_decoder_open", 4);
+	private static var lime_video_decoder_read_audio = CFFI.load("lime", "lime_video_decoder_read_audio", 4);
+	private static var lime_video_decoder_read_frame = CFFI.load("lime", "lime_video_decoder_read_frame", 5);
+	private static var lime_video_decoder_seek = CFFI.load("lime", "lime_video_decoder_seek", 3);
+	private static var lime_video_decoder_set_drop_late_frames = CFFI.load("lime", "lime_video_decoder_set_drop_late_frames", 2);
 	private static var lime_window_alert = CFFI.load("lime", "lime_window_alert", 3);
 	private static var lime_window_close = CFFI.load("lime", "lime_window_close", 1);
 	private static var lime_window_context_flip = CFFI.load("lime", "lime_window_context_flip", 1);
@@ -2217,6 +2265,54 @@ class NativeCFFI
 	}
 
 	@:hlNative("lime", "hl_tray_icon_set_tooltip") private static function lime_tray_icon_set_tooltip(handle:CFFIPointer, tooltip:String):Void {}
+
+	@:hlNative("lime", "hl_video_decoder_close") private static function lime_video_decoder_close(handle:CFFIPointer):Void {}
+
+	@:hlNative("lime", "hl_video_decoder_create") private static function lime_video_decoder_create():CFFIPointer
+	{
+		return null;
+	}
+
+	@:hlNative("lime", "hl_video_decoder_get_audio_time") private static function lime_video_decoder_get_audio_time(handle:CFFIPointer):Float
+	{
+		return 0;
+	}
+
+	@:hlNative("lime", "hl_video_decoder_get_frame_info") private static function lime_video_decoder_get_frame_info(handle:CFFIPointer):Dynamic
+	{
+		return null;
+	}
+
+	@:hlNative("lime", "hl_video_decoder_is_supported") private static function lime_video_decoder_is_supported():Bool
+	{
+		return false;
+	}
+
+	@:hlNative("lime", "hl_video_decoder_open") private static function lime_video_decoder_open(handle:CFFIPointer, path:String, hardwareDecoding:Bool,
+			format:Int):Dynamic
+	{
+		return null;
+	}
+
+	@:hlNative("lime", "hl_video_decoder_read_audio") private static function lime_video_decoder_read_audio(handle:CFFIPointer, buffer:Bytes, position:Int,
+			length:Int):Int
+	{
+		return 0;
+	}
+
+	@:hlNative("lime", "hl_video_decoder_read_frame") private static function lime_video_decoder_read_frame(handle:CFFIPointer, buffer:Bytes, position:Int,
+			length:Int, time:Float):Int
+	{
+		return 0;
+	}
+
+	@:hlNative("lime", "hl_video_decoder_seek") private static function lime_video_decoder_seek(handle:CFFIPointer, time:Float, accurate:Bool):Bool
+	{
+		return false;
+	}
+
+	@:hlNative("lime", "hl_video_decoder_set_drop_late_frames") private static function lime_video_decoder_set_drop_late_frames(handle:CFFIPointer,
+		value:Bool):Void {}
 
 	@:hlNative("lime", "hl_window_alert") private static function lime_window_alert(handle:CFFIPointer, message:String, title:String):Void {}
 
@@ -3163,6 +3259,8 @@ class NativeCFFI
 
 	@:cffi private static function lime_al_get_source3i(source:CFFIPointer, param:Int):Array<Int>;
 
+	@:cffi private static function lime_al_get_sourcedv_soft(source:CFFIPointer, param:Int, count:Int):Array<Float>;
+
 	@:cffi private static function lime_al_get_sourcef(source:CFFIPointer, param:Int):Float32;
 
 	@:cffi private static function lime_al_get_sourcefv(source:CFFIPointer, param:Int, count:Int):Array<Float>;
@@ -3362,6 +3460,8 @@ class NativeCFFI
 	private static var lime_al_get_proc_address = new cpp.Callable<String->Float>(cpp.Prime._loadPrime("lime", "lime_al_get_proc_address", "sd", false));
 	private static var lime_al_get_source3f = new cpp.Callable<cpp.Object->Int->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_al_get_source3f", "oio", false));
 	private static var lime_al_get_source3i = new cpp.Callable<cpp.Object->Int->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_al_get_source3i", "oio", false));
+	private static var lime_al_get_sourcedv_soft = new cpp.Callable<cpp.Object->Int->Int->cpp.Object>(cpp.Prime._loadPrime("lime",
+		"lime_al_get_sourcedv_soft", "oiio", false));
 	private static var lime_al_get_sourcef = new cpp.Callable<cpp.Object->Int->cpp.Float32>(cpp.Prime._loadPrime("lime", "lime_al_get_sourcef", "oif", false));
 	private static var lime_al_get_sourcefv = new cpp.Callable<cpp.Object->Int->Int->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_al_get_sourcefv", "oiio",
 		false));
@@ -3509,6 +3609,7 @@ class NativeCFFI
 	private static var lime_al_get_proc_address = CFFI.load("lime", "lime_al_get_proc_address", 1);
 	private static var lime_al_get_source3f = CFFI.load("lime", "lime_al_get_source3f", 2);
 	private static var lime_al_get_source3i = CFFI.load("lime", "lime_al_get_source3i", 2);
+	private static var lime_al_get_sourcedv_soft = CFFI.load("lime", "lime_al_get_sourcedv_soft", 3);
 	private static var lime_al_get_sourcef = CFFI.load("lime", "lime_al_get_sourcef", 2);
 	private static var lime_al_get_sourcefv = CFFI.load("lime", "lime_al_get_sourcefv", 3);
 	private static var lime_al_get_sourcei = CFFI.load("lime", "lime_al_get_sourcei", 2);
@@ -3760,6 +3861,12 @@ class NativeCFFI
 	}
 
 	@:hlNative("lime", "hl_al_get_source3i") private static function lime_al_get_source3i(source:CFFIPointer, param:Int):hl.NativeArray<Int>
+	{
+		return null;
+	}
+
+	@:hlNative("lime", "hl_al_get_sourcedv_soft") private static function lime_al_get_sourcedv_soft(source:CFFIPointer, param:Int,
+			count:Int):hl.NativeArray<Float>
 	{
 		return null;
 	}
