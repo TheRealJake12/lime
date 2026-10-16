@@ -19,12 +19,19 @@ import sys.io.File;
 	players meet in production. The clips in assets were written by Media
 	Foundation's sink writer:
 
-	- video-noaudio.mp4: 320x180 H.264 at 15 fps for a second, without sound
+	- video-noaudio.mp4: 320x180 H.264 at 15 fps for a second, without sound.
+	  Baseline profile, so with no B-frames its 15 frames fill exactly its
+	  length, which the loop tests count on every platform.
 	- audio-only.m4a: a second of AAC stereo, without video
 	- video-odd.mp4: 330x186, so its size is not a multiple of 16
 	- video-51.mp4: 320x180 with six channel AAC, which is mixed down to stereo
 	- video-anamorphic.mp4: 320x180 with pixels 4:3 as wide as tall, which the
 	  encoder wrote into the stream, given a matching pasp box by hand
+	- video-hdr-pq.mp4 and video-hdr-hlg.mp4: 320x180 BT.2020 patches on black,
+	  gray along the top and red and green below, given the PQ or HLG transfer
+	  in the stream and in a colr box by hand. The PQ grays are 10, 100, 203
+	  and 1000 nits and the colors 203, and the HLG grays a quarter, half,
+	  three quarters and all of the signal and the colors three quarters.
 
 	These were then edited box by box:
 
@@ -379,6 +386,51 @@ class VideoInputTest extends Test
 		decoder.close();
 	}
 
+	public function testHDRVideoIsShownInStandardRange():Void
+	{
+		// The reference white, 203 nits or three quarters of HLG, is shown near
+		// white, and brighter grays no darker, rather than the frames being
+		// shown as they are stored, which leaves them dim and gray
+		for (transfer in ["pq", "hlg"])
+		{
+			for (hardware in [true, false])
+			{
+				var decoder = openWith("assets/video-hdr-" + transfer + ".mp4", hardware);
+				if (decoder == null) return;
+
+				decoder.close();
+				Assert.isTrue(decoder.open("assets/video-hdr-" + transfer + ".mp4", RGBA));
+
+				var frame = new VideoFrame();
+				var described = transfer + " with " + (hardware ? "hardware" : "software") + " decoding";
+
+				if (!nextFrame(decoder, frame))
+				{
+					Assert.fail("no frame from " + described);
+					decoder.close();
+					continue;
+				}
+
+				var grays = [for (i in 0...4) patch(frame, 48 + i * 76, 48)];
+				var red = patch(frame, 48, 132);
+				var green = patch(frame, 124, 132);
+				var shown = described + " showed grays " + [for (gray in grays) gray[1]] + ", red " + red + " and green " + green;
+				decoder.close();
+
+				for (i in 1...4)
+				{
+					Assert.isTrue(grays[i][1] >= grays[i - 1][1], shown);
+				}
+
+				Assert.isTrue(grays[0][1] < 128, shown);
+				Assert.isTrue(grays[2][1] >= 200, shown);
+				Assert.isTrue(grays[3][1] >= 225, shown);
+				Assert.isTrue(red[0] >= 180 && red[1] < 90 && red[2] < 90, shown);
+				Assert.isTrue(green[1] >= 180 && green[0] < 90 && green[2] < 90, shown);
+			}
+		}
+	}
+
 	public function testVideoInAMissingCodecPlaysItsSound():Void
 	{
 		var decoder = open("assets/video-unsupported.mp4");
@@ -423,6 +475,55 @@ class VideoInputTest extends Test
 		decoder.close();
 
 		Assert.isFalse(decoder.seek(1), "a closed decoder seeked");
+	}
+
+	public function testVideoWithoutSoundLoopsWithoutAPause():Void
+	{
+		if (!canDecode()) return;
+
+		var video = new VideoSource("assets/video-noaudio.mp4");
+		var completed = false;
+		video.onComplete.add(function() completed = true);
+		video.loops = 2;
+		video.play();
+
+		// Frames come at 15 per second through both loop points
+		var frame = new VideoFrame();
+		var frames = 0;
+		var lastFrame = -1.0;
+		var longestGap = 0.0;
+		var decoder = @:privateAccess video.__backend.decoder;
+		var handovers = 0;
+		var start = Timer.stamp();
+
+		while (!completed && Timer.stamp() - start < TIMEOUT)
+		{
+			if (@:privateAccess video.__backend.decoder != decoder && @:privateAccess video.__backend.decoder != null)
+			{
+				decoder = @:privateAccess video.__backend.decoder;
+				handovers++;
+			}
+
+			if (video.readFrame(frame))
+			{
+				var now = Timer.stamp();
+				if (lastFrame >= 0 && now - lastFrame > longestGap) longestGap = now - lastFrame;
+				lastFrame = now;
+				frames++;
+			}
+
+			var end = Timer.stamp() + 0.005;
+			while (Timer.stamp() < end) {}
+		}
+
+		var elapsed = Timer.stamp() - start;
+		video.dispose();
+
+		Assert.isTrue(completed, "playback did not complete");
+		Assert.equals(2, handovers, "the next loops did not take over");
+		Assert.isTrue(Math.abs(frames - 45) <= 3, "showed " + frames + " frames of three loops of 15");
+		Assert.isTrue(elapsed > 2.7 && elapsed < 3.6, "three loops of a second played in " + elapsed + " s");
+		Assert.isTrue(longestGap < 0.2, "frames stopped for " + Math.round(longestGap * 1000) + " ms");
 	}
 
 	public function testVideoSourceWithoutSoundPlaysToTheEnd():Void
@@ -534,6 +635,26 @@ class VideoInputTest extends Test
 		}
 
 		return decoder;
+	}
+
+	private static function patch(frame:VideoFrame, centerX:Int, centerY:Int):Array<Int>
+	{
+		// The average color of an RGBA frame around a point, away from the
+		// blurring at the patch's edges
+		var sum = [0, 0, 0];
+		var count = 0;
+
+		for (y in centerY - 8...centerY + 8)
+		{
+			for (x in centerX - 8...centerX + 8)
+			{
+				var offset = (y * frame.width + x) * 4;
+				for (i in 0...3) sum[i] += frame.data[offset + i];
+				count++;
+			}
+		}
+
+		return [for (i in 0...3) Math.round(sum[i] / count)];
 	}
 
 	private static function readToTheEnd(decoder:VideoDecoder):{count:Int, ended:Bool}

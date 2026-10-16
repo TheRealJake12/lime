@@ -47,6 +47,7 @@ import lime.ui.Window;
 @:access(lime.graphics.Renderer)
 @:access(lime.system.Clipboard)
 @:access(lime.system.Sensor)
+@:access(lime.system.System)
 @:access(lime.ui.Gamepad)
 @:access(lime.ui.Joystick)
 @:access(lime.ui.MenuItem)
@@ -62,6 +63,12 @@ class NativeApplication
 	private var keyEventInfo = new KeyEventInfo();
 	private var menuEventInfo = new MenuEventInfo();
 	private var orientationEventInfo = new OrientationEventInfo();
+
+	/**
+		Whether a window allows high DPI, which Windows is told as the application
+		is created, before any window is. Set by ApplicationMain.
+	**/
+	@:noCompletion private static var __allowHighDPI:Bool = false;
 	private var mouseEventInfo = new MouseEventInfo();
 	private var renderEventInfo = new RenderEventInfo(RENDER);
 	private var sensorEventInfo = new SensorEventInfo();
@@ -81,7 +88,7 @@ class NativeApplication
 	private var deviceOrientationListener:OrientationChangeListener;
 	#end
 	private var menuItems:Array<MenuItem>;
-	private var pauseTimer:Int;
+	private var pauseTimer:Float;
 	private var parent:Application;
 	private var toggleFullscreen:Bool;
 
@@ -109,6 +116,7 @@ class NativeApplication
 		setDeviceOrientationListener(deviceOrientationListener);
 		#end
 		#if (!macro && lime_cffi)
+		if (__allowHighDPI) NativeCFFI.lime_application_allow_high_dpi();
 		handle = NativeCFFI.lime_application_create();
 		#end
 	}
@@ -118,7 +126,7 @@ class NativeApplication
 		#if (lime_cffi && !macro)
 		if (pauseTimer > -1)
 		{
-			var offset = System.getTimer() - pauseTimer;
+			var offset = System.__getTimer() - pauseTimer;
 			for (timer in Timer.sRunningTimers)
 			{
 				if (timer.mRunning) timer.mFireAt += offset;
@@ -370,6 +378,21 @@ class NativeApplication
 
 			case DISCONNECT:
 				Gamepad.__disconnect(gamepadEventInfo.id);
+
+			case SENSOR_UPDATE:
+				// The sensor comes in axis, and its readings in x, y and z
+				var gamepad = Gamepad.devices.get(gamepadEventInfo.id);
+				if (gamepad != null) @:privateAccess gamepad.onSensorUpdate.__dispatchWithTimestamp(gamepadEventInfo.timestamp, gamepadEventInfo.axis,
+					gamepadEventInfo.x, gamepadEventInfo.y, gamepadEventInfo.z);
+
+			case TOUCHPAD_DOWN, TOUCHPAD_MOVE, TOUCHPAD_UP:
+				// The finger comes in button, and where it is in x and y
+				var gamepad = Gamepad.devices.get(gamepadEventInfo.id);
+				if (gamepad != null)
+				{
+					var event = gamepadEventInfo.type == TOUCHPAD_DOWN ? gamepad.onTouchpadDown : (gamepadEventInfo.type == TOUCHPAD_MOVE ? gamepad.onTouchpadMove : gamepad.onTouchpadUp);
+					@:privateAccess event.__dispatchWithTimestamp(gamepadEventInfo.timestamp, gamepadEventInfo.button, gamepadEventInfo.x, gamepadEventInfo.y);
+				}
 		}
 	}
 
@@ -519,7 +542,10 @@ class NativeApplication
 
 					window.onMouseMoveRelative.dispatch(mouseEventInfo.movementX, mouseEventInfo.movementY);
 				case MOUSE_WHEEL:
-					window.onMouseWheel.dispatch(mouseEventInfo.x, mouseEventInfo.y, UNKNOWN);
+					// The fractions of a step come in movementX and movementY
+					if (window.preciseMouseWheel) window.onMouseWheel.dispatch(mouseEventInfo.movementX, mouseEventInfo.movementY, UNKNOWN);
+					else
+						window.onMouseWheel.dispatch(mouseEventInfo.x, mouseEventInfo.y, UNKNOWN);
 				default:
 			}
 		}
@@ -535,6 +561,13 @@ class NativeApplication
 				parent.onDisplayOrientationChange.dispatch(display, orientation);
 			case DEVICE_ORIENTATION_CHANGE:
 				parent.onDeviceOrientationChange.dispatch(orientation);
+			case DISPLAY_CONNECT:
+				var connected = System.getDisplay(display);
+				if (connected != null) Display.onConnect.dispatch(connected);
+			case DISPLAY_DISCONNECT:
+				Display.onDisconnect.dispatch(display);
+			case DISPLAY_MOVE:
+				Display.onMove.dispatch(display);
 		}
 	}
 
@@ -720,7 +753,7 @@ class NativeApplication
 				case WINDOW_DEACTIVATE:
 					window.onDeactivate.dispatch();
 					AudioManager.suspend();
-					pauseTimer = System.getTimer();
+					pauseTimer = System.__getTimer();
 				case WINDOW_ENTER:
 					window.onEnter.dispatch();
 				case WINDOW_EXPOSE:
@@ -784,7 +817,7 @@ class NativeApplication
 		#if (lime_cffi && !macro)
 		if (Timer.sRunningTimers.length > 0)
 		{
-			var currentTime = System.getTimer();
+			var currentTime = System.__getTimer();
 
 			var foundStopped = false;
 			for (timer in Timer.sRunningTimers)
@@ -899,8 +932,12 @@ class NativeApplication
 	public var type:GamepadEventType;
 	public var axisValue:Float;
 	public var timestamp:Int;
+	public var x:Float;
+	public var y:Float;
+	public var z:Float;
 
-	public function new(type:GamepadEventType = null, id:Int = 0, button:Int = 0, axis:Int = 0, value:Float = 0, timestamp:Int = 0)
+	public function new(type:GamepadEventType = null, id:Int = 0, button:Int = 0, axis:Int = 0, value:Float = 0, timestamp:Int = 0, x:Float = 0, y:Float = 0,
+			z:Float = 0)
 	{
 		this.type = type;
 		this.id = id;
@@ -908,11 +945,14 @@ class NativeApplication
 		this.axis = axis;
 		this.axisValue = value;
 		this.timestamp = timestamp;
+		this.x = x;
+		this.y = y;
+		this.z = z;
 	}
 
 	public function clone():GamepadEventInfo
 	{
-		return new GamepadEventInfo(type, id, button, axis, axisValue, timestamp);
+		return new GamepadEventInfo(type, id, button, axis, axisValue, timestamp, x, y, z);
 	}
 }
 
@@ -923,6 +963,10 @@ class NativeApplication
 	var BUTTON_UP = 2;
 	var CONNECT = 3;
 	var DISCONNECT = 4;
+	var SENSOR_UPDATE = 5;
+	var TOUCHPAD_DOWN = 6;
+	var TOUCHPAD_MOVE = 7;
+	var TOUCHPAD_UP = 8;
 }
 
 @:keep /*private*/ class JoystickEventInfo
@@ -1265,6 +1309,9 @@ class NativeApplication
 {
 	var DISPLAY_ORIENTATION_CHANGE = 0;
 	var DEVICE_ORIENTATION_CHANGE = 1;
+	var DISPLAY_CONNECT = 2;
+	var DISPLAY_DISCONNECT = 3;
+	var DISPLAY_MOVE = 4;
 }
 
 #if android

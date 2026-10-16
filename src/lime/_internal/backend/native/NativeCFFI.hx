@@ -55,6 +55,8 @@ class NativeCFFI
 	#if (lime_cffi && !macro)
 	#if (cpp && !cppia)
 	#if (disable_cffi || haxe_ver < "3.4.0")
+	@:cffi private static function lime_application_allow_high_dpi():Void;
+
 	@:cffi private static function lime_application_create():Dynamic;
 
 	@:cffi private static function lime_application_event_manager_register(callback:Dynamic, eventObject:Dynamic):Void;
@@ -209,6 +211,26 @@ class NativeCFFI
 	@:cffi private static function lime_gamepad_get_device_name(id:Int):Dynamic;
 
 	@:cffi private static function lime_gamepad_rumble(id:Int, lowFrequencyRumble:Float, highFrequencyRumble:Float, duration:Int):Void;
+
+	@:cffi private static function lime_gamepad_get_type(id:Int):Int;
+
+	@:cffi private static function lime_gamepad_has_led(id:Int):Bool;
+
+	@:cffi private static function lime_gamepad_has_rumble_triggers(id:Int):Bool;
+
+	@:cffi private static function lime_gamepad_has_sensor(id:Int, sensor:Int):Bool;
+
+	@:cffi private static function lime_gamepad_rumble_triggers(id:Int, leftRumble:Float, rightRumble:Float, duration:Int):Bool;
+
+	@:cffi private static function lime_gamepad_set_led(id:Int, red:Int, green:Int, blue:Int):Bool;
+
+	@:cffi private static function lime_gamepad_set_sensor_enabled(id:Int, sensor:Int, enabled:Bool):Bool;
+
+	@:cffi private static function lime_gamepad_attach_virtual():Int;
+
+	@:cffi private static function lime_gamepad_detach_virtual(id:Int):Void;
+
+	@:cffi private static function lime_gamepad_get_virtual_output(id:Int):Dynamic;
 
 	@:cffi private static function lime_gamepad_event_manager_register(callback:Dynamic, eventObject:Dynamic):Void;
 
@@ -402,7 +424,15 @@ class NativeCFFI
 
 	@:cffi private static function lime_window_get_id(handle:Dynamic):Int;
 
+	@:cffi private static function lime_window_flash(handle:Dynamic, mode:Int):Bool;
+
+	@:cffi private static function lime_window_get_keyboard_grab(handle:Dynamic):Bool;
+
 	@:cffi private static function lime_window_get_mouse_lock(handle:Dynamic):Bool;
+
+	@:cffi private static function lime_window_get_mouse_rect(handle:Dynamic):Dynamic;
+
+	@:cffi private static function lime_window_get_transparent(handle:Dynamic):Bool;
 
 	@:cffi private static function lime_window_get_opacity(handle:Dynamic):Float;
 
@@ -754,7 +784,11 @@ class NativeCFFI
 
 	@:cffi private static function lime_window_set_minimized(handle:Dynamic, minimized:Bool):Bool;
 
+	@:cffi private static function lime_window_set_keyboard_grab(handle:Dynamic, keyboardGrab:Bool):Void;
+
 	@:cffi private static function lime_window_set_mouse_lock(handle:Dynamic, mouseLock:Bool):Void;
+
+	@:cffi private static function lime_window_set_mouse_rect(handle:Dynamic, x:Int, y:Int, width:Int, height:Int):Void;
 
 	@:cffi private static function lime_window_set_opacity(handle:Dynamic, value:Float):Void;
 
@@ -778,6 +812,8 @@ class NativeCFFI
 
 	@:cffi private static function lime_zlib_decompress(data:Dynamic, bytes:Dynamic):Dynamic;
 	#else
+	private static var lime_application_allow_high_dpi = new cpp.Callable<Void->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_application_allow_high_dpi",
+		"v", false));
 	private static var lime_application_create = new cpp.Callable<Void->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_application_create", "o", false));
 	private static var lime_application_event_manager_register = new cpp.Callable<cpp.Object->cpp.Object->cpp.Void>(cpp.Prime._loadPrime("lime",
 		"lime_application_event_manager_register", "oov", false));
@@ -905,6 +941,20 @@ class NativeCFFI
 		false));
 	private static var lime_gamepad_rumble = new cpp.Callable<Int->Float->Float->Int->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_gamepad_rumble", "iddiv",
 		false));
+	private static var lime_gamepad_get_type = new cpp.Callable<Int->Int>(cpp.Prime._loadPrime("lime", "lime_gamepad_get_type", "ii", false));
+	private static var lime_gamepad_has_led = new cpp.Callable<Int->Bool>(cpp.Prime._loadPrime("lime", "lime_gamepad_has_led", "ib", false));
+	private static var lime_gamepad_has_rumble_triggers = new cpp.Callable<Int->Bool>(cpp.Prime._loadPrime("lime", "lime_gamepad_has_rumble_triggers", "ib",
+		false));
+	private static var lime_gamepad_has_sensor = new cpp.Callable<Int->Int->Bool>(cpp.Prime._loadPrime("lime", "lime_gamepad_has_sensor", "iib", false));
+	private static var lime_gamepad_rumble_triggers = new cpp.Callable<Int->Float->Float->Int->Bool>(cpp.Prime._loadPrime("lime",
+		"lime_gamepad_rumble_triggers", "iddib", false));
+	private static var lime_gamepad_set_led = new cpp.Callable<Int->Int->Int->Int->Bool>(cpp.Prime._loadPrime("lime", "lime_gamepad_set_led", "iiiib", false));
+	private static var lime_gamepad_set_sensor_enabled = new cpp.Callable<Int->Int->Bool->Bool>(cpp.Prime._loadPrime("lime",
+		"lime_gamepad_set_sensor_enabled", "iibb", false));
+	private static var lime_gamepad_attach_virtual = new cpp.Callable<Void->Int>(cpp.Prime._loadPrime("lime", "lime_gamepad_attach_virtual", "i", false));
+	private static var lime_gamepad_detach_virtual = new cpp.Callable<Int->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_gamepad_detach_virtual", "iv", false));
+	private static var lime_gamepad_get_virtual_output = new cpp.Callable<Int->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_gamepad_get_virtual_output",
+		"io", false));
 	private static var lime_gamepad_event_manager_register = new cpp.Callable<cpp.Object->cpp.Object->cpp.Void>(cpp.Prime._loadPrime("lime",
 		"lime_gamepad_event_manager_register", "oov", false));
 	private static var lime_gzip_compress = new cpp.Callable<cpp.Object->cpp.Object->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_gzip_compress", "ooo",
@@ -1065,7 +1115,14 @@ class NativeCFFI
 		"oo", false));
 	private static var lime_window_get_height = new cpp.Callable<cpp.Object->Int>(cpp.Prime._loadPrime("lime", "lime_window_get_height", "oi", false));
 	private static var lime_window_get_id = new cpp.Callable<cpp.Object->Int>(cpp.Prime._loadPrime("lime", "lime_window_get_id", "oi", false));
+	private static var lime_window_flash = new cpp.Callable<cpp.Object->Int->Bool>(cpp.Prime._loadPrime("lime", "lime_window_flash", "oib", false));
+	private static var lime_window_get_keyboard_grab = new cpp.Callable<cpp.Object->Bool>(cpp.Prime._loadPrime("lime", "lime_window_get_keyboard_grab", "ob",
+		false));
 	private static var lime_window_get_mouse_lock = new cpp.Callable<cpp.Object->Bool>(cpp.Prime._loadPrime("lime", "lime_window_get_mouse_lock", "ob", false));
+	private static var lime_window_get_mouse_rect = new cpp.Callable<cpp.Object->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_window_get_mouse_rect", "oo",
+		false));
+	private static var lime_window_get_transparent = new cpp.Callable<cpp.Object->Bool>(cpp.Prime._loadPrime("lime", "lime_window_get_transparent", "ob",
+		false));
 	private static var lime_window_get_opacity = new cpp.Callable<cpp.Object->Float>(cpp.Prime._loadPrime("lime", "lime_window_get_opacity", "od", false));
 	private static var lime_window_get_scale = new cpp.Callable<cpp.Object->Float>(cpp.Prime._loadPrime("lime", "lime_window_get_scale", "od", false));
 	private static var lime_window_get_text_input_enabled = new cpp.Callable<cpp.Object->Bool>(cpp.Prime._loadPrime("lime",
@@ -1316,8 +1373,12 @@ class NativeCFFI
 		false));
 	private static var lime_window_set_minimized = new cpp.Callable<cpp.Object->Bool->Bool>(cpp.Prime._loadPrime("lime", "lime_window_set_minimized", "obb",
 		false));
+	private static var lime_window_set_keyboard_grab = new cpp.Callable<cpp.Object->Bool->cpp.Void>(cpp.Prime._loadPrime("lime",
+		"lime_window_set_keyboard_grab", "obv", false));
 	private static var lime_window_set_mouse_lock = new cpp.Callable<cpp.Object->Bool->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_window_set_mouse_lock",
 		"obv", false));
+	private static var lime_window_set_mouse_rect = new cpp.Callable<cpp.Object->Int->Int->Int->Int->cpp.Void>(cpp.Prime._loadPrime("lime",
+		"lime_window_set_mouse_rect", "oiiiiv", false));
 	private static var lime_window_set_opacity = new cpp.Callable<cpp.Object->Float->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_window_set_opacity", "odv",
 		false));
 	private static var lime_window_set_resizable = new cpp.Callable<cpp.Object->Bool->Bool>(cpp.Prime._loadPrime("lime", "lime_window_set_resizable", "obb",
@@ -1343,6 +1404,7 @@ class NativeCFFI
 	#end
 	#end
 	#if (neko || cppia)
+	private static var lime_application_allow_high_dpi = CFFI.load("lime", "lime_application_allow_high_dpi", 0);
 	private static var lime_application_create = CFFI.load("lime", "lime_application_create", 0);
 	private static var lime_application_event_manager_register = CFFI.load("lime", "lime_application_event_manager_register", 2);
 	private static var lime_application_exec = CFFI.load("lime", "lime_application_exec", 1);
@@ -1420,6 +1482,16 @@ class NativeCFFI
 	private static var lime_gamepad_get_device_guid = CFFI.load("lime", "lime_gamepad_get_device_guid", 1);
 	private static var lime_gamepad_get_device_name = CFFI.load("lime", "lime_gamepad_get_device_name", 1);
 	private static var lime_gamepad_rumble = CFFI.load("lime", "lime_gamepad_rumble", 4);
+	private static var lime_gamepad_get_type = CFFI.load("lime", "lime_gamepad_get_type", 1);
+	private static var lime_gamepad_has_led = CFFI.load("lime", "lime_gamepad_has_led", 1);
+	private static var lime_gamepad_has_rumble_triggers = CFFI.load("lime", "lime_gamepad_has_rumble_triggers", 1);
+	private static var lime_gamepad_has_sensor = CFFI.load("lime", "lime_gamepad_has_sensor", 2);
+	private static var lime_gamepad_rumble_triggers = CFFI.load("lime", "lime_gamepad_rumble_triggers", 4);
+	private static var lime_gamepad_set_led = CFFI.load("lime", "lime_gamepad_set_led", 4);
+	private static var lime_gamepad_set_sensor_enabled = CFFI.load("lime", "lime_gamepad_set_sensor_enabled", 3);
+	private static var lime_gamepad_attach_virtual = CFFI.load("lime", "lime_gamepad_attach_virtual", 0);
+	private static var lime_gamepad_detach_virtual = CFFI.load("lime", "lime_gamepad_detach_virtual", 1);
+	private static var lime_gamepad_get_virtual_output = CFFI.load("lime", "lime_gamepad_get_virtual_output", 1);
 	private static var lime_gamepad_event_manager_register = CFFI.load("lime", "lime_gamepad_event_manager_register", 2);
 	private static var lime_gzip_compress = CFFI.load("lime", "lime_gzip_compress", 2);
 	private static var lime_gzip_decompress = CFFI.load("lime", "lime_gzip_decompress", 2);
@@ -1514,7 +1586,11 @@ class NativeCFFI
 	private static var lime_window_get_display_mode = CFFI.load("lime", "lime_window_get_display_mode", 1);
 	private static var lime_window_get_height = CFFI.load("lime", "lime_window_get_height", 1);
 	private static var lime_window_get_id = CFFI.load("lime", "lime_window_get_id", 1);
+	private static var lime_window_flash = CFFI.load("lime", "lime_window_flash", 2);
+	private static var lime_window_get_keyboard_grab = CFFI.load("lime", "lime_window_get_keyboard_grab", 1);
 	private static var lime_window_get_mouse_lock = CFFI.load("lime", "lime_window_get_mouse_lock", 1);
+	private static var lime_window_get_mouse_rect = CFFI.load("lime", "lime_window_get_mouse_rect", 1);
+	private static var lime_window_get_transparent = CFFI.load("lime", "lime_window_get_transparent", 1);
 	private static var lime_window_get_opacity = CFFI.load("lime", "lime_window_get_opacity", 1);
 	private static var lime_window_get_scale = CFFI.load("lime", "lime_window_get_scale", 1);
 	private static var lime_window_get_text_input_enabled = CFFI.load("lime", "lime_window_get_text_input_enabled", 1);
@@ -1645,7 +1721,9 @@ class NativeCFFI
 	private static var lime_window_set_maximized = CFFI.load("lime", "lime_window_set_maximized", 2);
 	private static var lime_window_set_menu = CFFI.load("lime", "lime_window_set_menu", 2);
 	private static var lime_window_set_minimized = CFFI.load("lime", "lime_window_set_minimized", 2);
+	private static var lime_window_set_keyboard_grab = CFFI.load("lime", "lime_window_set_keyboard_grab", 2);
 	private static var lime_window_set_mouse_lock = CFFI.load("lime", "lime_window_set_mouse_lock", 2);
+	private static var lime_window_set_mouse_rect = CFFI.load("lime", "lime_window_set_mouse_rect", 5);
 	private static var lime_window_set_opacity = CFFI.load("lime", "lime_window_set_opacity", 2);
 	private static var lime_window_set_resizable = CFFI.load("lime", "lime_window_set_resizable", 2);
 	private static var lime_window_set_text_input_enabled = CFFI.load("lime", "lime_window_set_text_input_enabled", 2);
@@ -1660,6 +1738,8 @@ class NativeCFFI
 	#end
 
 	#if hl
+	@:hlNative("lime", "hl_application_allow_high_dpi") private static function lime_application_allow_high_dpi():Void {}
+
 	@:hlNative("lime", "hl_application_create") private static function lime_application_create():CFFIPointer
 	{
 		return null;
@@ -1987,6 +2067,54 @@ class NativeCFFI
 
 	@:hlNative("lime", "hl_gamepad_rumble") private static function lime_gamepad_rumble(id:Int, lowFrequencyRumble:Float, highFrequencyRumble:Float,
 		duration:Int):Void {}
+
+	@:hlNative("lime", "hl_gamepad_get_type") private static function lime_gamepad_get_type(id:Int):Int
+	{
+		return 0;
+	}
+
+	@:hlNative("lime", "hl_gamepad_has_led") private static function lime_gamepad_has_led(id:Int):Bool
+	{
+		return false;
+	}
+
+	@:hlNative("lime", "hl_gamepad_has_rumble_triggers") private static function lime_gamepad_has_rumble_triggers(id:Int):Bool
+	{
+		return false;
+	}
+
+	@:hlNative("lime", "hl_gamepad_has_sensor") private static function lime_gamepad_has_sensor(id:Int, sensor:Int):Bool
+	{
+		return false;
+	}
+
+	@:hlNative("lime", "hl_gamepad_rumble_triggers") private static function lime_gamepad_rumble_triggers(id:Int, leftRumble:Float, rightRumble:Float,
+			duration:Int):Bool
+	{
+		return false;
+	}
+
+	@:hlNative("lime", "hl_gamepad_set_led") private static function lime_gamepad_set_led(id:Int, red:Int, green:Int, blue:Int):Bool
+	{
+		return false;
+	}
+
+	@:hlNative("lime", "hl_gamepad_set_sensor_enabled") private static function lime_gamepad_set_sensor_enabled(id:Int, sensor:Int, enabled:Bool):Bool
+	{
+		return false;
+	}
+
+	@:hlNative("lime", "hl_gamepad_attach_virtual") private static function lime_gamepad_attach_virtual():Int
+	{
+		return -1;
+	}
+
+	@:hlNative("lime", "hl_gamepad_detach_virtual") private static function lime_gamepad_detach_virtual(id:Int):Void {}
+
+	@:hlNative("lime", "hl_gamepad_get_virtual_output") private static function lime_gamepad_get_virtual_output(id:Int):Dynamic
+	{
+		return null;
+	}
 
 	@:hlNative("lime", "hl_gamepad_event_manager_register") private static function lime_gamepad_event_manager_register(callback:Void->Void,
 		eventObject:GamepadEventInfo):Void {}
@@ -2370,7 +2498,27 @@ class NativeCFFI
 		return 0;
 	}
 
+	@:hlNative("lime", "hl_window_flash") private static function lime_window_flash(handle:CFFIPointer, mode:Int):Bool
+	{
+		return false;
+	}
+
+	@:hlNative("lime", "hl_window_get_keyboard_grab") private static function lime_window_get_keyboard_grab(handle:CFFIPointer):Bool
+	{
+		return false;
+	}
+
 	@:hlNative("lime", "hl_window_get_mouse_lock") private static function lime_window_get_mouse_lock(handle:CFFIPointer):Bool
+	{
+		return false;
+	}
+
+	@:hlNative("lime", "hl_window_get_mouse_rect") private static function lime_window_get_mouse_rect(handle:CFFIPointer):Dynamic
+	{
+		return null;
+	}
+
+	@:hlNative("lime", "hl_window_get_transparent") private static function lime_window_get_transparent(handle:CFFIPointer):Bool
 	{
 		return false;
 	}
@@ -3050,7 +3198,12 @@ class NativeCFFI
 		return false;
 	}
 
+	@:hlNative("lime", "hl_window_set_keyboard_grab") private static function lime_window_set_keyboard_grab(handle:CFFIPointer, keyboardGrab:Bool):Void {}
+
 	@:hlNative("lime", "hl_window_set_mouse_lock") private static function lime_window_set_mouse_lock(handle:CFFIPointer, mouseLock:Bool):Void {}
+
+	@:hlNative("lime", "hl_window_set_mouse_rect") private static function lime_window_set_mouse_rect(handle:CFFIPointer, x:Int, y:Int, width:Int,
+		height:Int):Void {}
 
 	@:hlNative("lime", "hl_window_set_resizable") private static function lime_window_set_resizable(handle:CFFIPointer, resizable:Bool):Bool
 	{

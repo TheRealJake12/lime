@@ -82,6 +82,18 @@ namespace lime
 	};
 #endif
 
+	void AllowHighDPI()
+	{
+
+#if defined(HX_WINDOWS) && !defined(HX_WINRT)
+		// Windows otherwise draws the application at 96 DPI and stretches it to
+		// each display's scale. Window sizes stay in points, as on macOS, with
+		// the drawable in pixels. Both are read as SDL starts.
+		SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+		SDL_SetHint(SDL_HINT_WINDOWS_DPI_SCALING, "1");
+#endif
+	}
+
 	SDLApplication::SDLApplication()
 	{
 
@@ -98,6 +110,12 @@ namespace lime
 #if defined(LIME_MOJOAL) || defined(LIME_OPENALSOFT)
 		initFlags |= SDL_INIT_AUDIO;
 #endif
+
+		// Input methods show their own composition and candidate windows, which
+		// Lime apps don't draw, and compositions longer than an SDL text event
+		// holds arrive whole. Both are read as the video subsystem starts.
+		SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
+		SDL_SetHint(SDL_HINT_IME_SUPPORT_EXTENDED_TEXT, "1");
 
 		if (SDL_Init(initFlags) != 0)
 		{
@@ -146,6 +164,7 @@ namespace lime
 		requestedProfile = MAIN_LOOP_PROFILE_BALANCED;
 		requestedTimePrecisionMode = MAIN_LOOP_TIME_PRECISION_AUTO;
 		requestedUncapMode = MAIN_LOOP_UNCAP_OFF;
+		activeUncapMode = MAIN_LOOP_UNCAP_OFF;
 		requestedVSyncMode = MAIN_LOOP_VSYNC_OFF;
 		schedulerUnthrottled = false;
 		sleepGuardMs = 2.0;
@@ -237,7 +256,12 @@ namespace lime
 		bool hasExplicitFrameRate = (clampedFrameRate > 0.0);
 		double effectiveFrameRate = hasExplicitFrameRate ? clampedFrameRate : 1.0;
 
-		if (requestedUncapMode == MAIN_LOOP_UNCAP_SOFT || requestedUncapMode == MAIN_LOOP_UNCAP_HARD)
+		// The uncapped profile uncaps the loop unless the options ask for more
+		activeUncapMode = requestedUncapMode;
+		if (activeUncapMode == MAIN_LOOP_UNCAP_OFF && requestedProfile == MAIN_LOOP_PROFILE_UNCAPPED)
+			activeUncapMode = MAIN_LOOP_UNCAP_SOFT;
+
+		if (activeUncapMode == MAIN_LOOP_UNCAP_SOFT || activeUncapMode == MAIN_LOOP_UNCAP_HARD)
 		{
 			schedulerUnthrottled = true;
 		}
@@ -265,7 +289,7 @@ namespace lime
 
 			default:
 				useHighResolutionTimer = (requestedProfile == MAIN_LOOP_PROFILE_PRECISION || requestedProfile == MAIN_LOOP_PROFILE_UNCAPPED ||
-					requestedUncapMode != MAIN_LOOP_UNCAP_OFF || clampedFrameRate > 1000.0);
+					activeUncapMode != MAIN_LOOP_UNCAP_OFF || clampedFrameRate > 1000.0);
 				break;
 		}
 
@@ -284,7 +308,7 @@ namespace lime
 				break;
 		}
 
-		busyWaitOnly = allowBusyWait && (requestedUncapMode == MAIN_LOOP_UNCAP_HARD || (framePeriod > 0.0 && framePeriod <= 2.0));
+		busyWaitOnly = allowBusyWait && (activeUncapMode == MAIN_LOOP_UNCAP_HARD || (framePeriod > 0.0 && framePeriod <= 2.0));
 		currentUpdate = GetCurrentTimeMs();
 		nextUpdate = currentUpdate;
 	}
@@ -654,6 +678,10 @@ namespace lime
 		case SDL_CONTROLLERBUTTONUP:
 		case SDL_CONTROLLERDEVICEADDED:
 		case SDL_CONTROLLERDEVICEREMOVED:
+		case SDL_CONTROLLERSENSORUPDATE:
+		case SDL_CONTROLLERTOUCHPADDOWN:
+		case SDL_CONTROLLERTOUCHPADMOTION:
+		case SDL_CONTROLLERTOUCHPADUP:
 
 			ProcessGamepadEvent(event);
 			break;
@@ -670,6 +698,19 @@ namespace lime
 				// if the app was locked to portrait or landscape.
 				orientationEvent.type = DISPLAY_ORIENTATION_CHANGE;
 				orientationEvent.orientation = event->display.data1;
+				orientationEvent.display = event->display.display;
+				OrientationEvent::Dispatch(&orientationEvent);
+
+				break;
+
+			case SDL_DISPLAYEVENT_CONNECTED:
+			case SDL_DISPLAYEVENT_DISCONNECTED:
+			case SDL_DISPLAYEVENT_MOVED:
+
+				// Displays come and go, and move as they are arranged or the primary
+				// display changes
+				orientationEvent.type = event->display.event == SDL_DISPLAYEVENT_CONNECTED ? DISPLAY_CONNECT : (event->display.event == SDL_DISPLAYEVENT_DISCONNECTED ? DISPLAY_DISCONNECT : DISPLAY_MOVE);
+				orientationEvent.orientation = 0;
 				orientationEvent.display = event->display.display;
 				OrientationEvent::Dispatch(&orientationEvent);
 
@@ -748,6 +789,7 @@ namespace lime
 
 		case SDL_TEXTINPUT:
 		case SDL_TEXTEDITING:
+		case SDL_TEXTEDITING_EXT:
 
 			ProcessTextEvent(event);
 			break;
@@ -952,6 +994,36 @@ namespace lime
 				SDLGamepad::Disconnect(event->cdevice.which);
 				break;
 			}
+
+			case SDL_CONTROLLERSENSORUPDATE:
+
+				// The sensor goes in axis, and its readings in x, y and z
+				gamepadEvent.type = GAMEPAD_SENSOR_UPDATE;
+				gamepadEvent.id = event->csensor.which;
+				gamepadEvent.axis = event->csensor.sensor;
+				gamepadEvent.x = event->csensor.data[0];
+				gamepadEvent.y = event->csensor.data[1];
+				gamepadEvent.z = event->csensor.data[2];
+				gamepadEvent.timestamp = event->common.timestamp;
+
+				GamepadEvent::Dispatch(&gamepadEvent);
+				break;
+
+			case SDL_CONTROLLERTOUCHPADDOWN:
+			case SDL_CONTROLLERTOUCHPADMOTION:
+			case SDL_CONTROLLERTOUCHPADUP:
+
+				// The finger goes in button, and where it is in x and y
+				gamepadEvent.type = event->type == SDL_CONTROLLERTOUCHPADDOWN ? GAMEPAD_TOUCHPAD_DOWN : (event->type == SDL_CONTROLLERTOUCHPADMOTION ? GAMEPAD_TOUCHPAD_MOVE : GAMEPAD_TOUCHPAD_UP);
+				gamepadEvent.id = event->ctouchpad.which;
+				gamepadEvent.button = event->ctouchpad.finger;
+				gamepadEvent.x = event->ctouchpad.x;
+				gamepadEvent.y = event->ctouchpad.y;
+				gamepadEvent.z = event->ctouchpad.pressure;
+				gamepadEvent.timestamp = event->common.timestamp;
+
+				GamepadEvent::Dispatch(&gamepadEvent);
+				break;
 			}
 		}
 	}
@@ -1191,17 +1263,24 @@ namespace lime
 
 				mouseEvent.type = MOUSE_WHEEL;
 
+				// Whole steps, and, in movementX and movementY, the fractions of a
+				// step that touchpads and smooth wheels scroll by, for windows
+				// with preciseMouseWheel
 				if (event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED)
 				{
 
 					mouseEvent.x = -event->wheel.x;
 					mouseEvent.y = -event->wheel.y;
+					mouseEvent.movementX = -event->wheel.preciseX;
+					mouseEvent.movementY = -event->wheel.preciseY;
 				}
 				else
 				{
 
 					mouseEvent.x = event->wheel.x;
 					mouseEvent.y = event->wheel.y;
+					mouseEvent.movementX = event->wheel.preciseX;
+					mouseEvent.movementY = event->wheel.preciseY;
 				}
 				break;
 			}
@@ -1245,6 +1324,8 @@ namespace lime
 		if (TextEvent::callback)
 		{
 
+			const char *text = event->text.text;
+
 			switch (event->type)
 			{
 
@@ -1259,6 +1340,15 @@ namespace lime
 				textEvent.start = event->edit.start;
 				textEvent.length = event->edit.length;
 				break;
+
+			case SDL_TEXTEDITING_EXT:
+
+				// A composition too long for SDL_TEXTEDITING
+				textEvent.type = TEXT_EDIT;
+				textEvent.start = event->editExt.start;
+				textEvent.length = event->editExt.length;
+				text = event->editExt.text ? event->editExt.text : "";
+				break;
 			}
 
 			if (textEvent.text)
@@ -1267,11 +1357,18 @@ namespace lime
 				free(textEvent.text);
 			}
 
-			textEvent.text = (vbyte *)malloc(strlen(event->text.text) + 1);
-			strcpy((char *)textEvent.text, event->text.text);
+			textEvent.text = (vbyte *)malloc(strlen(text) + 1);
+			strcpy((char *)textEvent.text, text);
 
 			textEvent.windowID = event->text.windowID;
 			TextEvent::Dispatch(&textEvent);
+		}
+
+		// SDL leaves the long composition's text to the application to free
+		if (event->type == SDL_TEXTEDITING_EXT)
+		{
+
+			SDL_free(event->editExt.text);
 		}
 	}
 
@@ -1541,7 +1638,7 @@ namespace lime
 
 #if (!defined(IPHONE) && !defined(EMSCRIPTEN))
 
-		if (active && (inBackground || (!firstTime && requestedUncapMode != MAIN_LOOP_UNCAP_HARD)))
+		if (active && (inBackground || (!firstTime && activeUncapMode != MAIN_LOOP_UNCAP_HARD)))
 		{
 #if defined(HX_WINDOWS) && !defined(HX_WINRT)
 			// Windows WaitEvent always pumps before returning. Do not pump the OS again

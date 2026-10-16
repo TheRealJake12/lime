@@ -65,9 +65,34 @@ namespace lime {
 	static const int MAX_READER_RESTARTS = 3;
 
 
+	static VideoColorTransfer ToTransfer (CFTypeRef transfer) {
+
+		// The PQ and HLG constants need macOS 10.13 and iOS 11, so their values
+		// are compared
+		if (transfer && CFGetTypeID (transfer) == CFStringGetTypeID ()) {
+
+			if (CFEqual (transfer, CFSTR ("SMPTE_ST_2084_PQ"))) return VIDEO_COLOR_TRANSFER_PQ;
+			if (CFEqual (transfer, CFSTR ("ITU_R_2100_HLG"))) return VIDEO_COLOR_TRANSFER_HLG;
+
+		}
+
+		return VIDEO_COLOR_TRANSFER_SDR;
+
+	}
+
+
 	// CVBufferCopyAttachment, which replaces CVBufferGetAttachment, needs macOS 12 and iOS 15
 	#pragma clang diagnostic push
 	#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
+	static VideoColorTransfer GetTransfer (CVBufferRef buffer, VideoColorTransfer source) {
+
+		// AVFoundation tone maps HDR to the standard range it is asked for, but
+		// not all of it, such as H.264, whose frames keep their transfer
+		CFTypeRef transfer = CVBufferGetAttachment (buffer, kCVImageBufferTransferFunctionKey, NULL);
+		return transfer ? ToTransfer (transfer) : source;
+
+	}
 
 	static VideoColorMatrix GetColorMatrix (CVBufferRef buffer, int width, int height) {
 
@@ -102,6 +127,17 @@ namespace lime {
 	// loading, but Open has to wait for them anyway
 	#pragma clang diagnostic push
 	#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
+	static VideoColorTransfer GetSourceTransfer (AVAssetTrack* track) {
+
+		NSArray* formats = [track formatDescriptions];
+		if ([formats count] == 0) return VIDEO_COLOR_TRANSFER_SDR;
+
+		CMVideoFormatDescriptionRef format = LIME_BRIDGE (CMVideoFormatDescriptionRef, [formats objectAtIndex:0]);
+		return ToTransfer (CMFormatDescriptionGetExtension (format, kCMFormatDescriptionExtension_TransferFunction));
+
+	}
+
 
 	static double GetPixelAspectRatio (AVAssetTrack* track) {
 
@@ -306,6 +342,29 @@ namespace lime {
 	#endif
 
 
+	#if defined (LIME_VIDEO_AVF_TEXTURES) && defined (HX_MACOS)
+
+	// GL objects of a backend closed away from the GL thread, deleted the next
+	// time a decoder reads a texture frame where their context is current
+	struct AVFOrphan {
+
+		void* context;
+		GLuint copyFramebuffer;
+		GLuint copyTexture;
+		bool framebufferEXT;
+		GLuint sourceFramebuffer;
+		GLuint sourceTexture;
+
+	};
+
+	// Never destroyed, as exiting runs static destructors while threads can
+	// still be closing videos
+	static std::mutex* orphanMutex = new std::mutex ();
+	static std::vector<AVFOrphan>* orphans = new std::vector<AVFOrphan> ();
+
+	#endif
+
+
 	// Only iOS uses a CoreVideo texture cache
 	#if defined (LIME_VIDEO_AVF_TEXTURES) && !defined (HX_MACOS)
 	typedef CVOpenGLESTextureCacheRef AVFTextureCacheRef;
@@ -389,6 +448,7 @@ namespace lime {
 			virtual unsigned int LockTexture (VideoTextureFrame* frame);
 			virtual bool Open (const char* path, bool hardwareDecoding, VideoStreamInfo* info);
 			virtual void ReleaseTextureFrame (VideoTextureFrame* frame);
+			virtual void ReleaseOrphans ();
 			virtual void ReleaseTextures ();
 			virtual bool Seek (double time);
 			virtual void SetTextureOutput (bool enabled);
@@ -424,10 +484,12 @@ namespace lime {
 			int copyTextureWidth;
 			bool framebufferEXT;
 			double frameRate;
+			VideoColorTransfer frameTransfer;
 			CMSampleBufferRef lockedSample;
 			CMSampleBufferRef pendingSample;
 			unsigned int sourceFramebuffer;
 			unsigned int sourceTexture;
+			VideoColorTransfer sourceTransfer;
 			AVFTextureCacheRef textureCache;
 			void* textureContext;
 			std::atomic<bool> textureOutput;
@@ -459,10 +521,12 @@ namespace lime {
 		copyTextureWidth = 0;
 		framebufferEXT = false;
 		frameRate = 0;
+		frameTransfer = VIDEO_COLOR_TRANSFER_SDR;
 		lockedSample = NULL;
 		pendingSample = NULL;
 		sourceFramebuffer = 0;
 		sourceTexture = 0;
+		sourceTransfer = VIDEO_COLOR_TRANSFER_SDR;
 		textureCache = NULL;
 		textureContext = NULL;
 		textureOutput = false;
@@ -489,6 +553,23 @@ namespace lime {
 
 	void AVFVideoBackend::Close () {
 
+		#if defined (LIME_VIDEO_AVF_TEXTURES) && defined (HX_MACOS)
+		// GL objects still held were left by closing away from the GL thread, as
+		// closing there releases them first
+		if (copyTexture || sourceTexture || copyFramebuffer || sourceFramebuffer) {
+
+			AVFOrphan orphan = { textureContext, copyFramebuffer, copyTexture, framebufferEXT, sourceFramebuffer, sourceTexture };
+
+			{
+				std::lock_guard<std::mutex> lock (*orphanMutex);
+				orphans->push_back (orphan);
+			}
+
+			ForgetTextures ();
+
+		}
+		#endif
+
 		@autoreleasepool {
 
 			StopAudio ();
@@ -508,6 +589,8 @@ namespace lime {
 		audioPosition = 0;
 		audioSampleRate = 0;
 		frameRate = 0;
+		frameTransfer = VIDEO_COLOR_TRANSFER_SDR;
+		sourceTransfer = VIDEO_COLOR_TRANSFER_SDR;
 		videoPosition = 0;
 
 	}
@@ -641,6 +724,7 @@ namespace lime {
 			// The output format is video range, which full range sources are converted to
 			planes->colorMatrix = GetColorMatrix (image, width, height);
 			planes->fullRange = false;
+			planes->transfer = frameTransfer = GetTransfer (image, sourceTransfer);
 			planes->width = width;
 			planes->height = height;
 			planes->y = y;
@@ -679,6 +763,17 @@ namespace lime {
 
 				CFRelease (sample);
 				return VIDEO_DECODE_ERROR;
+
+			}
+
+			// HDR that was not tone mapped is decoded into memory from here on,
+			// where VideoDecoder tone maps it
+			frameTransfer = GetTransfer (image, sourceTransfer);
+
+			if (frameTransfer != VIDEO_COLOR_TRANSFER_SDR) {
+
+				CFRelease (sample);
+				return VIDEO_DECODE_OK;
 
 			}
 
@@ -956,6 +1051,7 @@ namespace lime {
 				CGAffineTransform transform = [videoTrack preferredTransform];
 				info->rotation = (int)lround (atan2 (transform.b, transform.a) * 180.0 / M_PI);
 				info->pixelAspectRatio = GetPixelAspectRatio (videoTrack);
+				sourceTransfer = GetSourceTransfer (videoTrack);
 
 			}
 
@@ -1060,6 +1156,36 @@ namespace lime {
 	void AVFVideoBackend::ReleaseTextureFrame (VideoTextureFrame* frame) {
 
 		delete frame;
+
+	}
+
+
+	void AVFVideoBackend::ReleaseOrphans () {
+
+		#if defined (LIME_VIDEO_AVF_TEXTURES) && defined (HX_MACOS)
+		std::vector<AVFOrphan> list;
+
+		{
+			std::lock_guard<std::mutex> lock (*orphanMutex);
+			if (orphans->empty ()) return;
+			list.swap (*orphans);
+		}
+
+		void* context = (void*)CGLGetCurrentContext ();
+
+		for (size_t i = 0; i < list.size (); i++) {
+
+			// Objects from a context that is no longer current are left with it
+			AVFOrphan& orphan = list[i];
+			if (orphan.context != context) continue;
+
+			if (orphan.copyTexture) glDeleteTextures (1, &orphan.copyTexture);
+			if (orphan.sourceTexture) glDeleteTextures (1, &orphan.sourceTexture);
+			if (orphan.copyFramebuffer) DeleteFramebuffer (orphan.framebufferEXT, orphan.copyFramebuffer);
+			if (orphan.sourceFramebuffer) DeleteFramebuffer (orphan.framebufferEXT, orphan.sourceFramebuffer);
+
+		}
+		#endif
 
 	}
 
@@ -1285,7 +1411,7 @@ namespace lime {
 
 	bool AVFVideoBackend::SupportsTextures () {
 
-		return videoTextures && textureOutput;
+		return videoTextures && textureOutput && frameTransfer == VIDEO_COLOR_TRANSFER_SDR;
 
 	}
 

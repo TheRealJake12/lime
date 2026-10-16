@@ -32,9 +32,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
-          curl --output ../hxcpp-4.3.45.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.45/hxcpp-4.3.45.zip
+          curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib --global update haxelib --quiet
-          haxelib install ../hxcpp-4.3.45.zip --quiet
+          haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
           haxelib install hxp --quiet
           haxelib install utest --quiet
@@ -83,6 +83,17 @@ jobs:
           lime test neko -release -verbose -nocolor
           lime test hl -release -verbose -nocolor
           lime test linux -release -verbose -nocolor
+
+      - name: Run unit tests past 24.8 days
+        working-directory: tests/unit
+        # A timer stuck at the Int limit hangs the tests rather than failing them
+        timeout-minutes: 10
+        env:
+          ALSOFT_DRIVERS: "null"
+        run: |
+          # The timer starts 10 s short of 2^31 ms, where an Int millisecond count
+          # runs out, so the tests run on across it
+          lime test linux -release -verbose -nocolor -Dsimulate_uptime=2147473648
 
       - name: Run video smoke test
         working-directory: tests/video-smoke
@@ -146,9 +157,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
-          curl --output ../hxcpp-4.3.45.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.45/hxcpp-4.3.45.zip
+          curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib --global update haxelib --quiet
-          haxelib install ../hxcpp-4.3.45.zip --quiet
+          haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
           haxelib install hxp --quiet
           haxelib install utest --quiet
@@ -227,9 +238,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
-          curl --output ../hxcpp-4.3.45.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.45/hxcpp-4.3.45.zip
+          curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib --global update haxelib --quiet
-          haxelib install ../hxcpp-4.3.45.zip --quiet
+          haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
           haxelib install hxp --quiet
           haxelib install utest --quiet
@@ -275,8 +286,8 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
-          curl --output ../hxcpp-4.3.45.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.45/hxcpp-4.3.45.zip
-          haxelib install ../hxcpp-4.3.45.zip --quiet
+          curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
+          haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
           haxelib install hxp --quiet
           haxelib install utest --quiet
@@ -354,6 +365,14 @@ jobs:
           echo "HAXEPATH=$HAXE_STD_PATH/.." >> $GITHUB_ENV
 
       - name: Install HashLink dependencies
+        env:
+          # Homebrew no longer builds bottles for Intel macOS, so updating it and
+          # upgrading what the runner already has rebuilds cmake, OpenSSL and
+          # Python from source, which takes an hour. Only what is missing is
+          # installed, from the formulae the runner image came with.
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_UPGRADE: 1
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
         run: |
           set -euxo pipefail
 
@@ -364,7 +383,7 @@ jobs:
           rm -f /usr/local/bin/pip3*
 
           for attempt in 1 2 3; do
-            if /usr/local/bin/brew update && /usr/local/bin/brew install jpeg-turbo libpng libuv libvorbis; then
+            if /usr/local/bin/brew install jpeg-turbo libpng libuv libvorbis; then
               break
             fi
             if [ "$attempt" -eq 3 ]; then
@@ -375,8 +394,8 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
-          curl --output ../hxcpp-4.3.45.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.45/hxcpp-4.3.45.zip
-          haxelib install ../hxcpp-4.3.45.zip --quiet
+          curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
+          haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
           haxelib install hxp --quiet
           haxelib install utest --quiet
@@ -467,8 +486,8 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
-          curl --output ../hxcpp-4.3.45.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.45/hxcpp-4.3.45.zip
-          haxelib install ../hxcpp-4.3.45.zip --quiet
+          curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
+          haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
           haxelib install hxp --quiet
           haxelib install utest --quiet
@@ -525,6 +544,17 @@ jobs:
           lime test hl -release -verbose -nocolor
           lime test air -release -verbose -nocolor
           lime test windows -release -verbose -nocolor
+
+      - name: Run unit tests past 24.8 days
+        working-directory: tests/unit
+        # A timer stuck at the Int limit hangs the tests rather than failing them
+        timeout-minutes: 10
+        env:
+          ALSOFT_DRIVERS: "null"
+        run: |
+          # The timer starts 10 s short of 2^31 ms, where an Int millisecond count
+          # runs out, so the tests run on across it
+          lime test windows -release -verbose -nocolor -Dsimulate_uptime=2147473648
 
       - name: Install samples
         run: |
@@ -664,8 +694,8 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
-          curl --output ../hxcpp-4.3.45.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.45/hxcpp-4.3.45.zip
-          haxelib install ../hxcpp-4.3.45.zip --quiet
+          curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
+          haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
           haxelib install hxp --quiet
 
@@ -744,8 +774,8 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
-          curl --output ../hxcpp-4.3.45.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.45/hxcpp-4.3.45.zip
-          haxelib install ../hxcpp-4.3.45.zip --quiet
+          curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
+          haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
           haxelib install hxp --quiet
 
@@ -809,8 +839,8 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
-          curl --output ../hxcpp-4.3.45.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.45/hxcpp-4.3.45.zip
-          haxelib install ../hxcpp-4.3.45.zip --quiet
+          curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
+          haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
           haxelib install hxp --quiet
           haxelib install svg --quiet
@@ -1010,8 +1040,8 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
-          curl --output ../hxcpp-4.3.45.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.45/hxcpp-4.3.45.zip
-          haxelib install ../hxcpp-4.3.45.zip --quiet
+          curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
+          haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
           haxelib install hxp --quiet
           haxelib git lime-samples https://github.com/openfl/lime-samples --quiet
@@ -1288,10 +1318,37 @@ jobs:
   notify:
     runs-on: ubuntu-22.04
     needs: [package-haxelib, docs, android, flash-samples, air-samples, hashlink-samples, hashlinkc-samples, html5-samples, ios, linux, linux-arm64, vulkan-smoke, macos, macos-intel, neko-samples, webassembly, windows]
-    if: ${{ github.repository == 'openfl/lime' && github.event_name != 'pull_request' }}
+    # Reports failures too, which is when it matters most
+    if: ${{ always() && github.repository == 'openfl/lime' && github.event_name != 'pull_request' }}
     steps:
       - name: Notify Discord
-        uses: nobrayner/discord-webhook@v1
-        with:
-          github-token: ${{ secrets.github_token }}
-          discord-webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: "[${{ github.repository }}] ${{ github.workflow }}"
+        run: |
+          # One message for the run, naming the jobs that did not pass. Discord
+          # takes at most 25 fields in a message, fewer than the jobs here, so
+          # they go in its description, and a message it turns down fails this.
+          jobs=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs?per_page=100" --jq '[.jobs[] | select(.name != "notify")]')
+          failed=$(echo "$jobs" | jq -r '[.[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out")] | map("[\(.name)](\(.html_url)): \(.conclusion)") | join("\n")')
+
+          if [ -z "$failed" ]; then status=Success; color=1560392; else status=Failure; color=15148839; fi
+
+          commit="${{ github.sha }}"
+          description="\`${commit:0:8}\` $(printf '%s' "$COMMIT_MESSAGE" | head -n 1)"
+          [ -n "$failed" ] && description="$description"$'\n\n'"$failed"
+
+          payload=$(jq -n --arg title "$TITLE: $status" --arg url "$RUN_URL" --arg actor "$ACTOR" --arg description "$description" --argjson color "$color" '{
+            username: "GitHub Actions",
+            avatar_url: "https://avatars0.githubusercontent.com/u/44036562?s=200&v=4",
+            embeds: [{
+              author: {name: $actor, url: ("https://github.com/" + $actor), icon_url: ("https://github.com/" + $actor + ".png")},
+              title: $title, url: $url, description: $description, color: $color
+            }]
+          }')
+
+          curl --fail-with-body --silent --show-error -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK"

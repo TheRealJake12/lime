@@ -11,6 +11,7 @@ import lime.media.VideoDecoder;
 import lime.media.VideoFrame;
 import lime.media.VideoSource;
 import lime.system.System;
+import lime.system.ThreadPool;
 #if (lime_cffi && lime_openal)
 import lime.utils.Int16Array;
 #end
@@ -50,6 +51,56 @@ class VideoSourceTest extends Test
 		Assert.isFalse(video.playing);
 		Assert.equals(0, video.length);
 		Assert.isFalse(video.readFrame(new VideoFrame()));
+	}
+
+	public function testLoadingFromAFileFinishesOnTheMainThread():Void
+	{
+		if (!VideoSource.isSupported)
+		{
+			Assert.pass();
+			return;
+		}
+
+		// Each video opens on a thread of its own, and its future finishes on the
+		// main thread when the application's loop runs that thread's events
+		var loaded:VideoSource = null;
+		var failed = false;
+		var onMainThread = false;
+		var missingFailed = false;
+
+		var future = VideoSource.loadFromFile(PATH);
+		future.onComplete(function(video)
+		{
+			loaded = video;
+			onMainThread = ThreadPool.isMainThread();
+		});
+		future.onError(function(error) failed = true);
+		VideoSource.loadFromFile("assets/missing.mp4").onError(function(error) missingFailed = true);
+
+		var end = Timer.stamp() + TIMEOUT;
+
+		while (((loaded == null && !failed) || !missingFailed) && Timer.stamp() < end)
+		{
+			runMainThreadEvents();
+			Sys.sleep(0.01);
+		}
+
+		Assert.isTrue(missingFailed, "loading a missing file did not fail");
+
+		if (failed)
+		{
+			Assert.warn("Cannot decode H.264 and AAC here, so loading a video was not tested");
+			return;
+		}
+
+		Assert.notNull(loaded, "loading did not finish");
+		if (loaded == null) return;
+
+		Assert.isTrue(onMainThread, "loading finished on another thread");
+		Assert.equals(PATH, loaded.source);
+		Assert.isTrue(loaded.hasVideo);
+		Assert.isTrue(loaded.length > 0);
+		loaded.dispose();
 	}
 
 	public function testPlaybackState():Void
@@ -361,12 +412,15 @@ class VideoSourceTest extends Test
 		// A source whose device went away can report any position, here an hour
 		// past the audio that is queued
 		var before = video.currentTime;
+		@:privateAccess video.__backend.lockAudio();
 		var bufferTimes:Array<Float> = @:privateAccess video.__backend.bufferTimes;
 
 		for (i in 0...bufferTimes.length)
 		{
 			bufferTimes[i] += 3600;
 		}
+
+		@:privateAccess video.__backend.unlockAudio();
 
 		var latest = 0;
 		var end = Timer.stamp() + 0.4;
@@ -472,8 +526,10 @@ class VideoSourceTest extends Test
 		// The application stops updating for a while, as for a garbage collection
 		// or a blocking load, and the sound already queued keeps playing
 		var backend = @:privateAccess video.__backend;
+		@:privateAccess backend.lockAudio();
 		var bufferTimes:Array<Float> = @:privateAccess backend.bufferTimes;
 		var queued = bufferTimes.length > 0 ? bufferTimes[bufferTimes.length - 1] + 0.04 - @:privateAccess backend.getAudioPosition() : 0;
+		@:privateAccess backend.unlockAudio();
 		var start = System.getTimer();
 		Sys.sleep(0.3);
 		var paused = (System.getTimer() - start) / 1000;
@@ -489,6 +545,95 @@ class VideoSourceTest extends Test
 		{
 			Assert.equals(AL.PLAYING, state, "the sound ran out with " + described);
 		}
+	}
+
+	#if (lime_threads && (target.threaded || cpp || neko))
+	public function testSoundPlaysOnThroughALongPauseInUpdates():Void
+	{
+		var video = open();
+		if (video == null) return;
+
+		if (!hasAudioOutput())
+		{
+			video.dispose();
+			return;
+		}
+
+		var frame = new VideoFrame();
+		startPlaying(video, frame);
+
+		// Longer than the sound that is queued at once, which another thread tops up
+		var start = System.getTimer();
+		Sys.sleep(1);
+		var paused = System.getTimer() - start;
+		var state = AL.getSourcei(@:privateAccess video.__backend.handle, AL.SOURCE_STATE);
+		video.dispose();
+
+		Assert.equals(AL.PLAYING, state, "the sound ran out during a pause of " + paused + " ms");
+	}
+	#end
+
+	public function testLoopsFollowOnWithoutAPause():Void
+	{
+		var video = open();
+		if (video == null) return;
+
+		if (!hasAudioOutput())
+		{
+			video.dispose();
+			return;
+		}
+
+		var completed = false;
+		video.onComplete.add(function() completed = true);
+		video.loops = 1;
+
+		var frame = new VideoFrame();
+		startPlaying(video, frame);
+
+		// The sound plays straight on into the next loop, and the frames keep coming
+		var stopped = 0;
+		var wrapped = false;
+		var lastTime = video.currentTime;
+		var lastFrame = System.getTimer();
+		var longestGap = 0;
+		var decoder = @:privateAccess video.__backend.decoder;
+		var handovers = 0;
+		var end = Timer.stamp() + TIMEOUT;
+
+		while (!completed && Timer.stamp() < end)
+		{
+			if (@:privateAccess video.__backend.decoder != decoder && @:privateAccess video.__backend.decoder != null)
+			{
+				decoder = @:privateAccess video.__backend.decoder;
+				handovers++;
+			}
+
+			if (video.readFrame(frame))
+			{
+				var now = System.getTimer();
+				if (now - lastFrame > longestGap) longestGap = now - lastFrame;
+				lastFrame = now;
+			}
+
+			// The last loop's sound ends a little before its picture, as in the file,
+			// so the sound is checked until halfway through it
+			var crossing = handovers == 0 || video.currentTime < video.length / 2;
+			if (!completed && crossing && AL.getSourcei(@:privateAccess video.__backend.handle, AL.SOURCE_STATE) != AL.PLAYING) stopped++;
+
+			var time = video.currentTime;
+			if (time < lastTime - 500) wrapped = true;
+			lastTime = time;
+			pause(0.005);
+		}
+
+		video.dispose();
+
+		Assert.isTrue(completed, "playback did not complete");
+		Assert.isTrue(wrapped, "currentTime did not start again for the second loop");
+		Assert.equals(1, handovers, "the next loop did not take over from the first");
+		Assert.equals(0, stopped, "the sound stopped across the loop");
+		Assert.isTrue(longestGap < 250, "frames stopped for " + longestGap + " ms");
 	}
 
 	public function testPanTurnsDownTheOppositeChannel():Void
@@ -509,7 +654,7 @@ class VideoSourceTest extends Test
 			video.pan = pan;
 			startPlaying(video, frame);
 
-			var peaks = bufferedPeaks(video);
+			var peaks = nextQueuedPeaks(video, frame);
 			video.dispose();
 
 			var opposite = pan < 0 ? peaks[1] : peaks[0];
@@ -517,6 +662,67 @@ class VideoSourceTest extends Test
 			Assert.equals(0, opposite, "with pan " + pan + ", the opposite channel peaked at " + opposite);
 			Assert.isTrue(kept > 1000, "with pan " + pan + ", the panned channel peaked at " + kept);
 		}
+	}
+
+	public function testPanReachesTheSoundAlreadyQueued():Void
+	{
+		var video = open();
+		if (video == null) return;
+
+		if (!hasAudioOutput())
+		{
+			video.dispose();
+			return;
+		}
+
+		// Opening fills the queue with sound before anything plays, so none of it
+		// is played, and none is added, while the pan changes
+		var backend = @:privateAccess video.__backend;
+		var end = Timer.stamp() + TIMEOUT;
+		while (@:privateAccess backend.freeBuffers.length > 0 && Timer.stamp() < end) pause(0.01);
+		var queued = @:privateAccess backend.bufferTimes.length;
+
+		video.pan = 1;
+
+		var peaks = bufferedPeaks(video);
+		video.dispose();
+
+		Assert.isTrue(queued > 0, "no sound was queued on opening");
+		Assert.equals(0, peaks[0], "with pan 1, sound queued before it was set peaked at " + peaks[0] + " on the left");
+		Assert.isTrue(peaks[1] > 1000, "with pan 1, sound queued before it was set peaked at " + peaks[1] + " on the right");
+	}
+
+	public function testPanWhilePlayingCarriesOnFromTheSameSound():Void
+	{
+		var video = open();
+		if (video == null) return;
+
+		if (!hasAudioOutput())
+		{
+			video.dispose();
+			return;
+		}
+
+		var frame = new VideoFrame();
+		startPlaying(video, frame);
+		run(video, frame, 0.3);
+
+		// The sound is queued again from where the output is, so it neither
+		// repeats nor skips, and plays on
+		var backend = @:privateAccess video.__backend;
+		var before = @:privateAccess backend.getAudioPosition();
+		video.pan = -1;
+		var after = @:privateAccess backend.getAudioPosition();
+		var state = AL.getSourcei(@:privateAccess backend.handle, AL.SOURCE_STATE);
+
+		var clock = video.currentTime;
+		run(video, frame, 0.3);
+		var moved = video.currentTime - clock;
+		video.dispose();
+
+		Assert.isTrue(Math.abs(after - before) < 0.05, "the sound moved from " + before + " s to " + after + " s");
+		Assert.equals(AL.PLAYING, state, "the sound stopped");
+		Assert.isTrue(moved > 200, "the clock moved " + moved + " ms in 0.3 s");
 	}
 
 	public function testVideoPlaysOnWhenTheAudioDeviceIsReplaced():Void
@@ -571,15 +777,36 @@ class VideoSourceTest extends Test
 		ALC.pauseDevice(device);
 		var clock = measureRate(video, frame, 0.6);
 		ALC.resumeDevice(device);
-		run(video, frame, 0.8);
+		run(video, frame, 0.5);
 
+		// The sound is moved back once it is more than AUDIO_DRIFT_SECONDS (0.1 s)
+		// from the clock, and its position moves a mix at a time, 56 to 84 ms on
+		// some outputs, so the gap is averaged over many readings. Left as it was,
+		// it would be the 0.6 s the output stalled for.
 		var backend = @:privateAccess video.__backend;
-		var queued = @:privateAccess backend.bufferTimes.length > 0;
-		var gap = queued ? Math.abs(@:privateAccess backend.getAudioPosition() * 1000 - video.currentTime) : Math.POSITIVE_INFINITY;
+		var gaps = 0.0;
+		var readings = 0;
+		var end = Timer.stamp() + 0.3;
+
+		while (Timer.stamp() < end)
+		{
+			@:privateAccess backend.lockAudio();
+			if (@:privateAccess backend.bufferTimes.length > 0)
+			{
+				gaps += Math.abs(@:privateAccess backend.getAudioPosition() * 1000 - video.currentTime);
+				readings++;
+			}
+			@:privateAccess backend.unlockAudio();
+
+			video.readFrame(frame);
+			pause(0.005);
+		}
+
 		video.dispose();
 
+		var gap = readings > 0 ? gaps / readings : Math.POSITIVE_INFINITY;
 		Assert.floatEquals(1, clock.rate, 0.1, "while the output stalled, the clock ran at " + clock.rate + " times real time");
-		Assert.isTrue(gap < 100, "after the output came back, the sound was " + gap + " ms from the clock");
+		Assert.isTrue(gap < 150, "after the output came back, the sound was " + Math.round(gap) + " ms from the clock on average");
 	}
 
 	#if lime_openalsoft
@@ -629,8 +856,8 @@ class VideoSourceTest extends Test
 		// Playing the sound 5% fast stands in for an output whose clock runs fast
 		// against the timer, as in some virtual machines. Steering alone would
 		// leave the clock behind by however far it takes to run that much faster.
-		// The rate is learned during the first pass and kept from then on, so the
-		// second pass after looping keeps up from the start.
+		// The rate is learned during the first pass and kept from then on, through
+		// the loop.
 		var frame = new VideoFrame();
 		video.loops = 1;
 		AL.sourcef(@:privateAccess video.__backend.handle, AL.PITCH, 1.05);
@@ -653,6 +880,44 @@ class VideoSourceTest extends Test
 	#end
 
 	#if (lime_cffi && lime_openal)
+	private static function nextQueuedPeaks(video:VideoSource, frame:VideoFrame):Array<Int>
+	{
+		// Sound skipped to catch up with the clock is read into the same buffer
+		// and dropped, so the peaks are read once a buffer has been queued after it
+		var backend = @:privateAccess video.__backend;
+		var queued = -1.0;
+		var peaks:Array<Int> = null;
+		var end = Timer.stamp() + TIMEOUT;
+
+		while (peaks == null && Timer.stamp() < end)
+		{
+			@:privateAccess backend.lockAudio();
+			var times:Array<Float> = @:privateAccess backend.bufferTimes;
+			var last = times.length > 0 ? times[times.length - 1] : -1.0;
+
+			if (@:privateAccess backend.audioSkipping)
+			{
+				queued = -1;
+			}
+			else if (queued < 0)
+			{
+				queued = last;
+			}
+			else if (last != queued)
+			{
+				peaks = bufferedPeaks(video);
+			}
+
+			@:privateAccess backend.unlockAudio();
+
+			video.readFrame(frame);
+			pause(0.005);
+		}
+
+		Assert.notNull(peaks, "no sound was queued while playing");
+		return peaks != null ? peaks : [0, 0];
+	}
+
 	private static function bufferedPeaks(video:VideoSource):Array<Int>
 	{
 		// The left and right peaks of the audio last given to OpenAL
@@ -696,14 +961,23 @@ class VideoSourceTest extends Test
 		for (i in 0...reads)
 		{
 			video.readFrame(frame);
-			var clock = video.currentTime;
-			var read = System.getTimer();
-			var bufferTimes:Array<Float> = @:privateAccess backend.bufferTimes;
 
-			if (bufferTimes.length > 0)
+			// The clock on the timeline the sound is queued on, which runs on
+			// through each loop, where currentTime starts again
+			var clock = @:privateAccess backend.getTime() * 1000;
+			var read = System.getTimer();
+
+			// The queue and the position are read together, as the sound is queued
+			// from another thread
+			@:privateAccess backend.lockAudio();
+			var bufferTimes:Array<Float> = @:privateAccess backend.bufferTimes;
+			var values = bufferTimes.length > 0 ? AL.getSourcedvSOFT(@:privateAccess backend.handle, AL.SEC_OFFSET_LATENCY_SOFT, 2) : null;
+			var queueStart = bufferTimes.length > 0 ? bufferTimes[0] : 0;
+			@:privateAccess backend.unlockAudio();
+
+			if (values != null)
 			{
-				var values = AL.getSourcedvSOFT(@:privateAccess backend.handle, AL.SEC_OFFSET_LATENCY_SOFT, 2);
-				var mixed = (bufferTimes[0] + values[0]) * 1000;
+				var mixed = (queueStart + values[0]) * 1000;
 				var latency = values[1] * 1000;
 
 				most = Math.max(most, latency);
@@ -722,7 +996,7 @@ class VideoSourceTest extends Test
 			}
 
 			lastRead = read;
-			Sys.sleep(0.005);
+			pause(0.005);
 		}
 
 		var measured = samples > 0 && belowMost / samples > 0.3;
@@ -906,7 +1180,7 @@ class VideoSourceTest extends Test
 		while (video.currentTime < time && Timer.stamp() < end)
 		{
 			video.readFrame(frame);
-			Sys.sleep(0.005);
+			pause(0.005);
 		}
 
 		Assert.isTrue(video.currentTime >= time, "the clock did not reach " + time + " ms" + describeStart(video));
@@ -969,7 +1243,7 @@ class VideoSourceTest extends Test
 
 			clocks.push(clock);
 			times.push(now - start);
-			Sys.sleep(0.005);
+			pause(0.005);
 		}
 
 		var clockMean = 0.0;
@@ -1006,6 +1280,15 @@ class VideoSourceTest extends Test
 		return true;
 	}
 
+	private static function pause(seconds:Float):Void
+	{
+		// Short sleeps can last several times longer on a busy machine, as macOS
+		// coalesces them, which would read the clock far less often than a render
+		// loop does. The time is waited out instead.
+		var end = Timer.stamp() + seconds;
+		while (Timer.stamp() < end) {}
+	}
+
 	private static function run(video:VideoSource, frame:VideoFrame, seconds:Float):Void
 	{
 		// Keeps the video updating, as a render loop would
@@ -1014,8 +1297,22 @@ class VideoSourceTest extends Test
 		while (Timer.stamp() < end)
 		{
 			video.readFrame(frame);
-			Sys.sleep(0.005);
+			pause(0.005);
 		}
+	}
+
+	private static function runMainThreadEvents():Void
+	{
+		// As the application's loop does between frames
+		#if (haxe_ver >= 4.2)
+		#if target.threaded
+		sys.thread.Thread.current().events.progress();
+		#else
+		@:privateAccess haxe.EntryPoint.processEvents();
+		#end
+		#else
+		@:privateAccess haxe.EntryPoint.processEvents();
+		#end
 	}
 
 	private static function open():VideoSource
