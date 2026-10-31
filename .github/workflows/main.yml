@@ -32,6 +32,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib --global update haxelib --quiet
           haxelib install ../hxcpp-4.3.53.zip --quiet
@@ -74,12 +77,19 @@ jobs:
             templates/bin/hl/Linux64
           if-no-files-found: error
 
+      - uses: actions/setup-python@v6
+        id: tls-python
+        with:
+          python-version: '3.12'
+
       - name: Run unit tests
         working-directory: tests/unit
         env:
+          LIME_TEST_PYTHON: ${{ steps.tls-python.outputs.python-path }}
           # OpenAL's null output stands in for the sound card runners lack
           ALSOFT_DRIVERS: "null"
         run: |
+          python -m unittest discover -s fixtures
           lime test neko -release -verbose -nocolor
           lime test hl -release -verbose -nocolor
           lime test linux -release -verbose -nocolor
@@ -157,6 +167,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib --global update haxelib --quiet
           haxelib install ../hxcpp-4.3.53.zip --quiet
@@ -182,12 +195,19 @@ jobs:
             !**/.gitignore
           if-no-files-found: error
 
+      - uses: actions/setup-python@v6
+        id: tls-python
+        with:
+          python-version: '3.12'
+
       - name: Run unit tests
         working-directory: tests/unit
         env:
+          LIME_TEST_PYTHON: ${{ steps.tls-python.outputs.python-path }}
           # OpenAL's null output stands in for the sound card runners lack
           ALSOFT_DRIVERS: "null"
         run: |
+          python -m unittest discover -s fixtures
           lime test neko -release -verbose -nocolor
           lime test linux -release -verbose -nocolor
 
@@ -238,6 +258,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib --global update haxelib --quiet
           haxelib install ../hxcpp-4.3.53.zip --quiet
@@ -269,7 +292,7 @@ jobs:
           SDL_AUDIODRIVER=dummy xvfb-run -a Export/linux/bin/LimeVulkanSmoke
 
   macos:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
 
       - uses: actions/checkout@v6
@@ -286,6 +309,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
@@ -310,12 +336,30 @@ jobs:
             !**/.gitignore
           if-no-files-found: error
 
+      - uses: actions/setup-python@v6
+        id: tls-python
+        with:
+          python-version: '3.12'
+
+      - name: Set trust settings for the HTTPS tests
+        working-directory: tests/unit
+        run: |
+          # Lets the runner change the administrator's trust settings without a password prompt.
+          # macOS 15 refuses this change through security authorizationdb, so it is made in the
+          # authorization database itself, where class 4 is allow
+          sudo sqlite3 /var/db/auth.db "UPDATE rules SET class = 4 WHERE name = 'com.apple.trust-settings.admin'"
+          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain fixtures/trusted-ca.pem
+          sudo security add-trusted-cert -d -r deny -k /Library/Keychains/System.keychain fixtures/test-ca.pem
+          echo "LIME_TEST_TRUST_SETTINGS=1" >> $GITHUB_ENV
+
       - name: Run unit tests
         working-directory: tests/unit
         env:
+          LIME_TEST_PYTHON: ${{ steps.tls-python.outputs.python-path }}
           # OpenAL's null output stands in for the sound card runners lack
           ALSOFT_DRIVERS: "null"
         run: |
+          python -m unittest discover -s fixtures
           lime test neko -release -verbose -nocolor
           lime test mac -arm64 -release -verbose -nocolor
 
@@ -394,6 +438,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
@@ -429,12 +476,19 @@ jobs:
             templates/bin/hl/Mac64
           if-no-files-found: error
 
+      - uses: actions/setup-python@v6
+        id: tls-python
+        with:
+          python-version: '3.12'
+
       - name: Run unit tests
         working-directory: tests/unit
         env:
+          LIME_TEST_PYTHON: ${{ steps.tls-python.outputs.python-path }}
           # OpenAL's null output stands in for the sound card runners lack
           ALSOFT_DRIVERS: "null"
         run: |
+          python -m unittest discover -s fixtures
           lime test neko -release -verbose -nocolor
           lime test hl -release -verbose -nocolor
           lime test mac -x86_64 -release -verbose -nocolor
@@ -486,6 +540,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
@@ -534,16 +591,38 @@ jobs:
             templates/bin/hl/Windows64
           if-no-files-found: error
 
+      - uses: actions/setup-python@v6
+        id: tls-python
+        with:
+          python-version: '3.12'
+
       - name: Run unit tests
         working-directory: tests/unit
         env:
+          LIME_TEST_PYTHON: ${{ steps.tls-python.outputs.python-path }}
           # OpenAL's null output stands in for the sound card runners lack
           ALSOFT_DRIVERS: "null"
         run: |
+          python -m unittest discover -s fixtures
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           lime test neko -release -verbose -nocolor
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           lime test hl -release -verbose -nocolor
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           lime test air -release -verbose -nocolor
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           lime test windows -release -verbose -nocolor
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Check native desktop integration through SDL
+        working-directory: tests/native-desktop
+        timeout-minutes: 5
+        run: lime test windows -release -verbose -nocolor
+
+      - name: Check local sockets between processes
+        working-directory: tests/local-socket
+        timeout-minutes: 5
+        run: lime test windows -release -verbose -nocolor
 
       - name: Run unit tests past 24.8 days
         working-directory: tests/unit
@@ -614,6 +693,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           curl --output ../hxcpp-4.3.168.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.168/hxcpp-4.3.168.zip
           haxelib install ../hxcpp-4.3.168.zip --quiet
           haxelib install format --quiet
@@ -694,6 +776,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
@@ -717,6 +802,10 @@ jobs:
       - name: Rebuild Lime (Android)
         run: |
           lime rebuild android -release -nocolor -verbose -nocffi -eval
+
+      - name: Check Lime's mbedTLS names (Android)
+        run: |
+          haxe --cwd project/lib/custom/mbedtls --run GeneratePrefix -check ../../../obj
 
       - uses: actions/upload-artifact@v7
         with:
@@ -757,7 +846,7 @@ jobs:
           lime build android -release -verbose -nocolor -eval
 
   ios:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
 
       - uses: actions/checkout@v6
@@ -774,6 +863,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
@@ -787,6 +879,10 @@ jobs:
       - name: Rebuild Lime (iOS)
         run: |
           lime rebuild ios -clean -release -verbose -nocolor -eval
+
+      - name: Check Lime's mbedTLS names (iOS)
+        run: |
+          haxe --cwd project/lib/custom/mbedtls --run GeneratePrefix -check ../../../../ndll/iPhone
 
       - uses: actions/upload-artifact@v7
         with:
@@ -839,6 +935,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
@@ -856,6 +955,9 @@ jobs:
           cp project/lib/hashlink/src/hlc.h templates/bin/hl/include/hlc.h
           cp project/lib/hashlink/src/hl.h templates/bin/hl/include/hl.h
           cp project/lib/hashlink/src/hlc_main.c templates/bin/hl/include/hlc_main.c
+          mkdir -p templates/mbedtls/include templates/mbedtls/config
+          cp -R project/lib/mbedtls/include/. templates/mbedtls/include/
+          cp project/lib/custom/mbedtls/*.h templates/mbedtls/config/
 
       - uses: actions/download-artifact@v8
         with:
@@ -955,6 +1057,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           haxelib install dox --quiet
           haxelib dev lime ${{ github.workspace }}
 
@@ -985,6 +1090,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           haxelib install format --quiet
           haxelib install hxp --quiet
           haxelib git lime-samples https://github.com/openfl/lime-samples --quiet
@@ -1040,6 +1148,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           curl --output ../hxcpp-4.3.53.zip --location https://github.com/HaxeFoundation/hxcpp/releases/download/v4.3.53/hxcpp-4.3.53.zip
           haxelib install ../hxcpp-4.3.53.zip --quiet
           haxelib install format --quiet
@@ -1076,7 +1187,7 @@ jobs:
     needs: package-haxelib
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-22.04, macos-14]
+        os: [windows-latest, ubuntu-22.04, macos-15]
     runs-on: ${{ matrix.os }}
     steps:
 
@@ -1095,6 +1206,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           haxelib git lime-samples https://github.com/openfl/lime-samples --quiet
 
       - uses: actions/download-artifact@v8
@@ -1131,7 +1245,7 @@ jobs:
     needs: package-haxelib
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-22.04, macos-14]
+        os: [windows-latest, ubuntu-22.04, macos-15]
     runs-on: ${{ matrix.os }}
     steps:
 
@@ -1150,6 +1264,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           haxelib git lime-samples https://github.com/openfl/lime-samples --quiet
 
       - uses: actions/download-artifact@v8
@@ -1202,6 +1319,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           haxelib install genes --quiet
           haxelib git lime-samples https://github.com/openfl/lime-samples --quiet
 
@@ -1264,7 +1384,7 @@ jobs:
     strategy:
       matrix:
         haxe-version: [3.4.7, 4.2.5]
-        os: [windows-latest, ubuntu-22.04, macos-14]
+        os: [windows-latest, ubuntu-22.04, macos-15]
     runs-on: ${{ matrix.os }}
     steps:
 
@@ -1283,6 +1403,9 @@ jobs:
 
       - name: Install Haxe dependencies
         run: |
+          haxelib install native-desktop 1.0.1 --quiet
+          haxelib install native-ipc 1.0.0 --quiet
+          haxelib install wsproto 1.0.0 --quiet
           haxelib git lime-samples https://github.com/openfl/lime-samples --quiet
 
       - uses: actions/download-artifact@v8

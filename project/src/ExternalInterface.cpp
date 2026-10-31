@@ -21,6 +21,7 @@
 #include <graphics/RenderEvent.h>
 #ifdef LIME_VULKAN
 #include <graphics/vulkan/VKRenderer.h>
+#include <SDL_log.h>
 #endif
 #include <media/containers/OGG.h>
 #include <media/containers/WAV.h>
@@ -89,13 +90,8 @@ namespace lime {
 	static void LogVulkanNativeBootstrap (const char* message) {
 
 #ifdef LIME_VULKAN
-		::FILE* file = ::fopen ("lime-vulkan-native.log", "a");
-		if (file) {
-
-			::fprintf (file, "%s\n", message ? message : "<null>");
-			::fclose (file);
-
-		}
+		// Shown with SDL_LOGGING=render=debug
+		SDL_LogDebug (SDL_LOG_CATEGORY_RENDER, "%s", message ? message : "<null>");
 #endif
 
 	}
@@ -2959,6 +2955,24 @@ namespace lime {
 	}
 
 
+	value lime_font_render_glyph_with_offset (value fontHandle, int index, int loadFlags, int subpixelX, value data) {
+
+		#ifdef LIME_FREETYPE
+		Font *font = (Font*)val_data (fontHandle);
+		Bytes bytes (data);
+
+		if (font->RenderGlyphWithFlags (index, loadFlags, &bytes, 0, subpixelX)) {
+
+			return bytes.Value (data);
+
+		}
+		#endif
+
+		return alloc_null ();
+
+	}
+
+
 	HL_PRIM Bytes* HL_NAME(hl_font_render_glyph) (HL_CFFIPointer* fontHandle, int index, Bytes* data) {
 
 		#ifdef LIME_FREETYPE
@@ -2982,6 +2996,23 @@ namespace lime {
 		Font *font = (Font*)fontHandle->ptr;
 
 		if (font->RenderGlyphWithFlags (index, loadFlags, data)) {
+
+			return data;
+
+		}
+		#endif
+
+		return NULL;
+
+	}
+
+
+	HL_PRIM Bytes* HL_NAME(hl_font_render_glyph_with_offset) (HL_CFFIPointer* fontHandle, int index, int loadFlags, int subpixelX, Bytes* data) {
+
+		#ifdef LIME_FREETYPE
+		Font *font = (Font*)fontHandle->ptr;
+
+		if (font->RenderGlyphWithFlags (index, loadFlags, data, 0, subpixelX)) {
 
 			return data;
 
@@ -3047,6 +3078,28 @@ namespace lime {
 
 	}
 
+
+	bool lime_font_set_variation (value fontHandle, value tag, double coordinate) {
+		#ifdef LIME_FREETYPE
+		Font* font = (Font*)val_data(fontHandle);
+		if (!font || val_is_null(tag) || val_strlen(tag) != 4) return false;
+		const unsigned char* axis = (const unsigned char*)val_string(tag);
+		return font->SetVariation((axis[0] << 24) | (axis[1] << 16) | (axis[2] << 8) | axis[3], coordinate);
+		#else
+		return false;
+		#endif
+	}
+
+	HL_PRIM bool HL_NAME(hl_font_set_variation) (HL_CFFIPointer* fontHandle, hl_vstring* tag, double coordinate) {
+		#ifdef LIME_FREETYPE
+		Font* font = fontHandle ? (Font*)fontHandle->ptr : 0;
+		if (!font || !tag || tag->length != 4) return false;
+		const uchar* axis = (const uchar*)tag->bytes;
+		return font->SetVariation((axis[0] << 24) | (axis[1] << 16) | (axis[2] << 8) | axis[3], coordinate);
+		#else
+		return false;
+		#endif
+	}
 
 	void lime_font_set_stem_darkening (value fontHandle, bool enable) {
 
@@ -4644,6 +4697,26 @@ namespace lime {
 		#endif
 
 		return 0;
+
+	}
+
+
+	bool lime_system_get_secure_random_bytes (value buffer, int offset, int length) {
+
+		Bytes bytes (buffer);
+
+		if (offset < 0 || length < 0 || (length > 0 && (!bytes.b || offset > bytes.length || length > bytes.length - offset))) return false;
+
+		return System::GetSecureRandomBytes (length > 0 ? bytes.b + offset : NULL, length);
+
+	}
+
+
+	HL_PRIM bool HL_NAME(hl_system_get_secure_random_bytes) (Bytes* buffer, int offset, int length) {
+
+		if (offset < 0 || length < 0 || (length > 0 && (!buffer || !buffer->b || offset > buffer->length || length > buffer->length - offset))) return false;
+
+		return System::GetSecureRandomBytes (length > 0 ? buffer->b + offset : NULL, length);
 
 	}
 
@@ -13857,6 +13930,22 @@ namespace lime {
 	}
 
 
+	void lime_window_set_appearance (value window, int appearance) {
+		SetWindowAppearance (val_is_null (window) ? NULL : (Window*)val_data (window), appearance);
+	}
+
+	HL_PRIM void HL_NAME(hl_window_set_appearance) (HL_CFFIPointer* window, int appearance) {
+		SetWindowAppearance (window ? (Window*)window->ptr : NULL, appearance);
+	}
+
+	int lime_window_get_appearance (value window) {
+		return GetWindowAppearance (val_is_null (window) ? NULL : (Window*)val_data (window));
+	}
+
+	HL_PRIM int HL_NAME(hl_window_get_appearance) (HL_CFFIPointer* window) {
+		return GetWindowAppearance (window ? (Window*)window->ptr : NULL);
+	}
+
 	value lime_window_set_title (value window, HxString title) {
 
 		Window* targetWindow = (Window*)val_data (window);
@@ -14069,8 +14158,10 @@ namespace lime {
 	DEFINE_PRIME2 (lime_font_outline_decompose_no_hint);
 	DEFINE_PRIME3 (lime_font_render_glyph);
 	DEFINE_PRIME4 (lime_font_render_glyph_with_flags);
+	DEFINE_PRIME5 (lime_font_render_glyph_with_offset);
 	DEFINE_PRIME3 (lime_font_render_glyphs);
 	DEFINE_PRIME3v (lime_font_set_size);
+	DEFINE_PRIME3 (lime_font_set_variation);
 	DEFINE_PRIME2v (lime_font_set_stem_darkening);
 	DEFINE_PRIME2v (lime_font_set_stem_darkening_parameters);
 	DEFINE_PRIME1v (lime_gamepad_add_mappings);
@@ -14144,6 +14235,7 @@ namespace lime {
 	DEFINE_PRIME0 (lime_system_get_platform_label);
 	DEFINE_PRIME0 (lime_system_get_platform_name);
 	DEFINE_PRIME0 (lime_system_get_platform_version);
+	DEFINE_PRIME3 (lime_system_get_secure_random_bytes);
 	DEFINE_PRIME0 (lime_system_get_timer);
 	DEFINE_PRIME1 (lime_system_get_windows_console_mode);
 	DEFINE_PRIME1v (lime_system_open_file);
@@ -14316,6 +14408,8 @@ namespace lime {
 	DEFINE_PRIME2v (lime_window_set_text_input_enabled);
 	DEFINE_PRIME2v (lime_window_set_text_input_rect);
 	DEFINE_PRIME2 (lime_window_set_title);
+	DEFINE_PRIME2v (lime_window_set_appearance);
+	DEFINE_PRIME1 (lime_window_get_appearance);
 	DEFINE_PRIME2 (lime_window_set_visible);
 	DEFINE_PRIME2 (lime_window_set_always_on_top);
 	DEFINE_PRIME3v (lime_window_warp_mouse);
@@ -14421,8 +14515,10 @@ namespace lime {
 	DEFINE_HL_PRIM (_DYN, hl_font_outline_decompose_no_hint, _TCFFIPOINTER _I32);
 	DEFINE_HL_PRIM (_TBYTES, hl_font_render_glyph, _TCFFIPOINTER _I32 _TBYTES);
 	DEFINE_HL_PRIM (_TBYTES, hl_font_render_glyph_with_flags, _TCFFIPOINTER _I32 _I32 _TBYTES);
+	DEFINE_HL_PRIM (_TBYTES, hl_font_render_glyph_with_offset, _TCFFIPOINTER _I32 _I32 _I32 _TBYTES);
 	DEFINE_HL_PRIM (_TBYTES, hl_font_render_glyphs, _TCFFIPOINTER _ARR _TBYTES);
 	DEFINE_HL_PRIM (_VOID, hl_font_set_size, _TCFFIPOINTER _I32 _I32);
+	DEFINE_HL_PRIM (_BOOL, hl_font_set_variation, _TCFFIPOINTER _STRING _F64);
 	DEFINE_HL_PRIM (_VOID, hl_font_set_stem_darkening, _TCFFIPOINTER _BOOL);
 	DEFINE_HL_PRIM (_VOID, hl_font_set_stem_darkening_parameters, _TCFFIPOINTER _ARR);
 	DEFINE_HL_PRIM (_VOID, hl_gamepad_add_mappings, _ARR);
@@ -14496,6 +14592,7 @@ namespace lime {
 	DEFINE_HL_PRIM (_BYTES, hl_system_get_platform_label, _NO_ARG);
 	DEFINE_HL_PRIM (_BYTES, hl_system_get_platform_name, _NO_ARG);
 	DEFINE_HL_PRIM (_BYTES, hl_system_get_platform_version, _NO_ARG);
+	DEFINE_HL_PRIM (_BOOL, hl_system_get_secure_random_bytes, _TBYTES _I32 _I32);
 	DEFINE_HL_PRIM (_F64, hl_system_get_timer, _NO_ARG);
 	DEFINE_HL_PRIM (_I32, hl_system_get_windows_console_mode, _I32);
 	DEFINE_HL_PRIM (_VOID, hl_system_open_file, _STRING);
@@ -14668,6 +14765,8 @@ namespace lime {
 	DEFINE_HL_PRIM (_VOID, hl_window_set_text_input_enabled, _TCFFIPOINTER _BOOL);
 	DEFINE_HL_PRIM (_VOID, hl_window_set_text_input_rect, _TCFFIPOINTER _TRECTANGLE);
 	DEFINE_HL_PRIM (_STRING, hl_window_set_title, _TCFFIPOINTER _STRING);
+	DEFINE_HL_PRIM (_VOID, hl_window_set_appearance, _TCFFIPOINTER _I32);
+	DEFINE_HL_PRIM (_I32, hl_window_get_appearance, _TCFFIPOINTER);
 	DEFINE_HL_PRIM (_BOOL, hl_window_set_visible, _TCFFIPOINTER _BOOL);
 	DEFINE_HL_PRIM (_BOOL, hl_window_set_always_on_top, _TCFFIPOINTER _BOOL);
 	DEFINE_HL_PRIM (_VOID, hl_window_warp_mouse, _TCFFIPOINTER _I32 _I32);
@@ -14710,6 +14809,13 @@ extern "C" int lime_opengl_register_prims ();
 extern "C" int lime_opengl_register_prims () { return 0; }
 #endif
 
+#ifdef LIME_SDL_SOUND
+extern "C" int lime_sdl_sound_register_prims ();
+#else
+extern "C" int lime_sdl_sound_register_prims () { return 0; }
+#endif
+
+extern "C" int lime_local_socket_register_prims ();
 extern "C" int lime_video_register_prims ();
 
 #ifdef LIME_VORBIS
@@ -14724,8 +14830,10 @@ extern "C" int lime_register_prims () {
 	lime_cairo_register_prims ();
 	lime_curl_register_prims ();
 	lime_harfbuzz_register_prims ();
+	lime_local_socket_register_prims ();
 	lime_openal_register_prims ();
 	lime_opengl_register_prims ();
+	lime_sdl_sound_register_prims ();
 	lime_video_register_prims ();
 	lime_vorbis_register_prims ();
 

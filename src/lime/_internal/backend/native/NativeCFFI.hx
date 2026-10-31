@@ -196,9 +196,12 @@ class NativeCFFI
 
 	@:cffi private static function lime_font_render_glyph_with_flags(handle:Dynamic, index:Int, loadFlags:Int, data:Dynamic):Dynamic;
 
+	@:cffi private static function lime_font_render_glyph_with_offset(handle:Dynamic, index:Int, loadFlags:Int, subpixelX:Int, data:Dynamic):Dynamic;
+
 	@:cffi private static function lime_font_render_glyphs(handle:Dynamic, indices:Dynamic, data:Dynamic):Dynamic;
 
 	@:cffi private static function lime_font_set_size(handle:Dynamic, size:Int, dpi:Int):Void;
+	@:cffi private static function lime_font_set_variation(handle:Dynamic, tag:Dynamic, coordinate:Float):Bool;
 
 	@:cffi private static function lime_font_set_stem_darkening(handle:Dynamic, enable:Bool):Void;
 
@@ -300,6 +303,32 @@ class NativeCFFI
 
 	@:cffi private static function lime_key_event_manager_register(callback:Dynamic, eventObject:Dynamic):Void;
 
+	@:cffi private static function lime_local_socket_close(handle:Dynamic):Void;
+
+	@:cffi private static function lime_local_socket_connect(name:String, timeoutMs:Int):Dynamic;
+
+	@:cffi private static function lime_local_socket_event_manager_register(callback:Dynamic, eventObject:Dynamic):Void;
+
+	@:cffi private static function lime_local_socket_get_accepted():Dynamic;
+
+	@:cffi private static function lime_local_socket_get_bytes_pending(handle:Dynamic):Int;
+
+	@:cffi private static function lime_local_socket_get_id(handle:Dynamic):Int;
+
+	@:cffi private static function lime_local_socket_get_last_error():Int;
+
+	@:cffi private static function lime_local_socket_is_supported():Bool;
+
+	@:cffi private static function lime_local_socket_listen(name:String):Dynamic;
+
+	@:cffi private static function lime_local_socket_read(buffer:Dynamic):Void;
+
+	@:cffi private static function lime_local_socket_send(handle:Dynamic, buffer:Dynamic, offset:Int, length:Int):Bool;
+
+	@:cffi private static function lime_local_socket_set_max_queued(handle:Dynamic, bytes:Int):Void;
+
+	@:cffi private static function lime_local_socket_update():Void;
+
 	@:cffi private static function lime_lzma_compress(data:Dynamic, bytes:Dynamic):Dynamic;
 
 	@:cffi private static function lime_lzma_decompress(data:Dynamic, bytes:Dynamic):Dynamic;
@@ -345,6 +374,8 @@ class NativeCFFI
 	@:cffi private static function lime_system_get_platform_name():Dynamic;
 
 	@:cffi private static function lime_system_get_platform_version():Dynamic;
+
+	@:cffi private static function lime_system_get_secure_random_bytes(buffer:Dynamic, offset:Int, length:Int):Bool;
 
 	@:cffi private static function lime_system_get_timer():Float;
 
@@ -799,6 +830,8 @@ class NativeCFFI
 	@:cffi private static function lime_window_set_text_input_rect(handle:Dynamic, rect:Dynamic):Void;
 
 	@:cffi private static function lime_window_set_title(handle:Dynamic, title:String):Dynamic;
+	@:cffi private static function lime_window_set_appearance(handle:Dynamic, appearance:Int):Void;
+	@:cffi private static function lime_window_get_appearance(handle:Dynamic):Int;
 
 	@:cffi private static function lime_window_set_visible(handle:Dynamic, visible:Bool):Bool;
 
@@ -928,9 +961,12 @@ class NativeCFFI
 		"lime_font_render_glyph", "oioo", false));
 	private static var lime_font_render_glyph_with_flags = new cpp.Callable<cpp.Object->Int->Int->cpp.Object->cpp.Object>(cpp.Prime._loadPrime("lime",
 		"lime_font_render_glyph_with_flags", "oiioo", false));
+	private static var lime_font_render_glyph_with_offset = new cpp.Callable<cpp.Object->Int->Int->Int->cpp.Object->cpp.Object>(cpp.Prime._loadPrime("lime",
+		"lime_font_render_glyph_with_offset", "oiiioo", false));
 	private static var lime_font_render_glyphs = new cpp.Callable<cpp.Object->cpp.Object->cpp.Object->cpp.Object>(cpp.Prime._loadPrime("lime",
 		"lime_font_render_glyphs", "oooo", false));
 	private static var lime_font_set_size = new cpp.Callable<cpp.Object->Int->Int->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_font_set_size", "oiiv", false));
+	private static var lime_font_set_variation = new cpp.Callable<cpp.Object->cpp.Object->Float->Bool>(cpp.Prime._loadPrime("lime", "lime_font_set_variation", "oodb", false));
 	private static var lime_font_set_stem_darkening = new cpp.Callable<cpp.Object->Bool->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_font_set_stem_darkening", "obv", false));
 	private static var lime_font_set_stem_darkening_parameters = new cpp.Callable<cpp.Object->cpp.Object->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_font_set_stem_darkening_parameters", "oov", false));
 	private static var lime_gamepad_add_mappings = new cpp.Callable<cpp.Object->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_gamepad_add_mappings", "ov",
@@ -1012,6 +1048,27 @@ class NativeCFFI
 	private static var lime_key_code_to_scan_code = new cpp.Callable<Int->Int>(cpp.Prime._loadPrime("lime", "lime_key_code_to_scan_code", "ii", false));
 	private static var lime_key_event_manager_register = new cpp.Callable<cpp.Object->cpp.Object->cpp.Void>(cpp.Prime._loadPrime("lime",
 		"lime_key_event_manager_register", "oov", false));
+	private static var lime_local_socket_close = new cpp.Callable<cpp.Object->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_local_socket_close", "ov", false));
+	private static var lime_local_socket_connect = new cpp.Callable<String->Int->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_local_socket_connect", "sio",
+		false));
+	private static var lime_local_socket_event_manager_register = new cpp.Callable<cpp.Object->cpp.Object->cpp.Void>(cpp.Prime._loadPrime("lime",
+		"lime_local_socket_event_manager_register", "oov", false));
+	private static var lime_local_socket_get_accepted = new cpp.Callable<Void->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_local_socket_get_accepted", "o",
+		false));
+	private static var lime_local_socket_get_bytes_pending = new cpp.Callable<cpp.Object->Int>(cpp.Prime._loadPrime("lime",
+		"lime_local_socket_get_bytes_pending", "oi", false));
+	private static var lime_local_socket_get_id = new cpp.Callable<cpp.Object->Int>(cpp.Prime._loadPrime("lime", "lime_local_socket_get_id", "oi", false));
+	private static var lime_local_socket_get_last_error = new cpp.Callable<Void->Int>(cpp.Prime._loadPrime("lime", "lime_local_socket_get_last_error", "i",
+		false));
+	private static var lime_local_socket_is_supported = new cpp.Callable<Void->Bool>(cpp.Prime._loadPrime("lime", "lime_local_socket_is_supported", "b",
+		false));
+	private static var lime_local_socket_listen = new cpp.Callable<String->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_local_socket_listen", "so", false));
+	private static var lime_local_socket_read = new cpp.Callable<cpp.Object->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_local_socket_read", "ov", false));
+	private static var lime_local_socket_send = new cpp.Callable<cpp.Object->cpp.Object->Int->Int->Bool>(cpp.Prime._loadPrime("lime",
+		"lime_local_socket_send", "ooiib", false));
+	private static var lime_local_socket_set_max_queued = new cpp.Callable<cpp.Object->Int->cpp.Void>(cpp.Prime._loadPrime("lime",
+		"lime_local_socket_set_max_queued", "oiv", false));
+	private static var lime_local_socket_update = new cpp.Callable<Void->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_local_socket_update", "v", false));
 	private static var lime_lzma_compress = new cpp.Callable<cpp.Object->cpp.Object->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_lzma_compress", "ooo",
 		false));
 	private static var lime_lzma_decompress = new cpp.Callable<cpp.Object->cpp.Object->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_lzma_decompress", "ooo",
@@ -1053,6 +1110,8 @@ class NativeCFFI
 		false));
 	private static var lime_system_get_platform_version = new cpp.Callable<Void->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_system_get_platform_version",
 		"o", false));
+	private static var lime_system_get_secure_random_bytes = new cpp.Callable<cpp.Object->Int->Int->Bool>(cpp.Prime._loadPrime("lime",
+		"lime_system_get_secure_random_bytes", "oiib", false));
 	private static var lime_system_get_timer = new cpp.Callable<Void->Float>(cpp.Prime._loadPrime("lime", "lime_system_get_timer", "d", false));
 	private static var lime_system_open_file = new cpp.Callable<String->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_system_open_file", "sv", false));
 	private static var lime_system_open_url = new cpp.Callable<String->String->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_system_open_url", "ssv", false));
@@ -1387,6 +1446,8 @@ class NativeCFFI
 		"lime_window_set_text_input_enabled", "obv", false));
 	private static var lime_window_set_text_input_rect = new cpp.Callable<cpp.Object->cpp.Object->cpp.Void>(cpp.Prime._loadPrime("lime",
 		"lime_window_set_text_input_rect", "oov", false));
+	private static var lime_window_set_appearance = new cpp.Callable<cpp.Object->Int->cpp.Void>(cpp.Prime._loadPrime("lime", "lime_window_set_appearance", "oiv", false));
+	private static var lime_window_get_appearance = new cpp.Callable<cpp.Object->Int>(cpp.Prime._loadPrime("lime", "lime_window_get_appearance", "oi", false));
 	private static var lime_window_set_title = new cpp.Callable<cpp.Object->String->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_window_set_title", "oso",
 		false));
 	private static var lime_window_set_visible = new cpp.Callable<cpp.Object->Bool->Bool>(cpp.Prime._loadPrime("lime", "lime_window_set_visible", "obb",
@@ -1474,8 +1535,10 @@ class NativeCFFI
 	private static var lime_font_outline_decompose_no_hint = CFFI.load("lime", "lime_font_outline_decompose_no_hint", 2);
 	private static var lime_font_render_glyph = CFFI.load("lime", "lime_font_render_glyph", 3);
 	private static var lime_font_render_glyph_with_flags = CFFI.load("lime", "lime_font_render_glyph_with_flags", 4);
+	private static var lime_font_render_glyph_with_offset = CFFI.load("lime", "lime_font_render_glyph_with_offset", 5);
 	private static var lime_font_render_glyphs = CFFI.load("lime", "lime_font_render_glyphs", 3);
 	private static var lime_font_set_size = CFFI.load("lime", "lime_font_set_size", 3);
+	private static var lime_font_set_variation = CFFI.load("lime", "lime_font_set_variation", 3);
 	private static var lime_font_set_stem_darkening = CFFI.load("lime", "lime_font_set_stem_darkening", 2);
 	private static var lime_font_set_stem_darkening_parameters = CFFI.load("lime", "lime_font_set_stem_darkening_parameters", 2);
 	private static var lime_gamepad_add_mappings = CFFI.load("lime", "lime_gamepad_add_mappings", 1);
@@ -1524,6 +1587,19 @@ class NativeCFFI
 	private static var lime_key_code_from_scan_code = CFFI.load("lime", "lime_key_code_from_scan_code", 1);
 	private static var lime_key_code_to_scan_code = CFFI.load("lime", "lime_key_code_to_scan_code", 1);
 	private static var lime_key_event_manager_register = CFFI.load("lime", "lime_key_event_manager_register", 2);
+	private static var lime_local_socket_close = CFFI.load("lime", "lime_local_socket_close", 1);
+	private static var lime_local_socket_connect = CFFI.load("lime", "lime_local_socket_connect", 2);
+	private static var lime_local_socket_event_manager_register = CFFI.load("lime", "lime_local_socket_event_manager_register", 2);
+	private static var lime_local_socket_get_accepted = CFFI.load("lime", "lime_local_socket_get_accepted", 0);
+	private static var lime_local_socket_get_bytes_pending = CFFI.load("lime", "lime_local_socket_get_bytes_pending", 1);
+	private static var lime_local_socket_get_id = CFFI.load("lime", "lime_local_socket_get_id", 1);
+	private static var lime_local_socket_get_last_error = CFFI.load("lime", "lime_local_socket_get_last_error", 0);
+	private static var lime_local_socket_is_supported = CFFI.load("lime", "lime_local_socket_is_supported", 0);
+	private static var lime_local_socket_listen = CFFI.load("lime", "lime_local_socket_listen", 1);
+	private static var lime_local_socket_read = CFFI.load("lime", "lime_local_socket_read", 1);
+	private static var lime_local_socket_send = CFFI.load("lime", "lime_local_socket_send", 4);
+	private static var lime_local_socket_set_max_queued = CFFI.load("lime", "lime_local_socket_set_max_queued", 2);
+	private static var lime_local_socket_update = CFFI.load("lime", "lime_local_socket_update", 0);
 	private static var lime_lzma_compress = CFFI.load("lime", "lime_lzma_compress", 2);
 	private static var lime_lzma_decompress = CFFI.load("lime", "lime_lzma_decompress", 2);
 	private static var lime_menu_event_manager_register = CFFI.load("lime", "lime_menu_event_manager_register", 2);
@@ -1547,6 +1623,7 @@ class NativeCFFI
 	private static var lime_system_get_platform_label = CFFI.load("lime", "lime_system_get_platform_label", 0);
 	private static var lime_system_get_platform_name = CFFI.load("lime", "lime_system_get_platform_name", 0);
 	private static var lime_system_get_platform_version = CFFI.load("lime", "lime_system_get_platform_version", 0);
+	private static var lime_system_get_secure_random_bytes = CFFI.load("lime", "lime_system_get_secure_random_bytes", 3);
 	private static var lime_system_get_timer = CFFI.load("lime", "lime_system_get_timer", 0);
 	private static var lime_system_open_file = CFFI.load("lime", "lime_system_open_file", 1);
 	private static var lime_system_open_url = CFFI.load("lime", "lime_system_open_url", 2);
@@ -1729,6 +1806,8 @@ class NativeCFFI
 	private static var lime_window_set_text_input_enabled = CFFI.load("lime", "lime_window_set_text_input_enabled", 2);
 	private static var lime_window_set_text_input_rect = CFFI.load("lime", "lime_window_set_text_input_rect", 2);
 	private static var lime_window_set_title = CFFI.load("lime", "lime_window_set_title", 2);
+	private static var lime_window_set_appearance = CFFI.load("lime", "lime_window_set_appearance", 2);
+	private static var lime_window_get_appearance = CFFI.load("lime", "lime_window_get_appearance", 1);
 	private static var lime_window_set_visible = CFFI.load("lime", "lime_window_set_visible", 2);
 	private static var lime_window_set_always_on_top = CFFI.load("lime", "lime_window_set_always_on_top", 2);
 	private static var lime_window_warp_mouse = CFFI.load("lime", "lime_window_warp_mouse", 3);
@@ -2041,6 +2120,12 @@ class NativeCFFI
 		return null;
 	}
 
+	@:hlNative("lime", "hl_font_render_glyph_with_offset") private static function lime_font_render_glyph_with_offset(handle:CFFIPointer, index:Int,
+			loadFlags:Int, subpixelX:Int, data:Bytes):Bytes
+	{
+		return null;
+	}
+
 	@:hlNative("lime", "hl_font_render_glyphs") private static function lime_font_render_glyphs(handle:CFFIPointer, indices:hl.NativeArray<Int>,
 			data:Bytes):Bytes
 	{
@@ -2048,6 +2133,7 @@ class NativeCFFI
 	}
 
 	@:hlNative("lime", "hl_font_set_size") private static function lime_font_set_size(handle:CFFIPointer, size:Int, dpi:Int):Void {}
+	@:hlNative("lime", "hl_font_set_variation") private static function lime_font_set_variation(handle:CFFIPointer, tag:String, coordinate:Float):Bool { return false; }
 
 	@:hlNative("lime", "hl_font_set_stem_darkening") private static function lime_font_set_stem_darkening(handle:CFFIPointer, enable:Bool):Void {}
 
@@ -2243,6 +2329,57 @@ class NativeCFFI
 	@:hlNative("lime", "hl_key_event_manager_register") private static function lime_key_event_manager_register(callback:Void->Void,
 		eventObject:KeyEventInfo):Void {}
 
+	@:hlNative("lime", "hl_local_socket_close") private static function lime_local_socket_close(handle:CFFIPointer):Void {}
+
+	@:hlNative("lime", "hl_local_socket_connect") private static function lime_local_socket_connect(name:String, timeoutMs:Int):CFFIPointer
+	{
+		return null;
+	}
+
+	@:hlNative("lime", "hl_local_socket_event_manager_register") private static function lime_local_socket_event_manager_register(callback:Void->Void,
+		eventObject:LocalSocketEventInfo):Void {}
+
+	@:hlNative("lime", "hl_local_socket_get_accepted") private static function lime_local_socket_get_accepted():CFFIPointer
+	{
+		return null;
+	}
+
+	@:hlNative("lime", "hl_local_socket_get_bytes_pending") private static function lime_local_socket_get_bytes_pending(handle:CFFIPointer):Int
+	{
+		return 0;
+	}
+
+	@:hlNative("lime", "hl_local_socket_get_id") private static function lime_local_socket_get_id(handle:CFFIPointer):Int
+	{
+		return 0;
+	}
+
+	@:hlNative("lime", "hl_local_socket_get_last_error") private static function lime_local_socket_get_last_error():Int
+	{
+		return 0;
+	}
+
+	@:hlNative("lime", "hl_local_socket_is_supported") private static function lime_local_socket_is_supported():Bool
+	{
+		return false;
+	}
+
+	@:hlNative("lime", "hl_local_socket_listen") private static function lime_local_socket_listen(name:String):CFFIPointer
+	{
+		return null;
+	}
+
+	@:hlNative("lime", "hl_local_socket_read") private static function lime_local_socket_read(buffer:Bytes):Void {}
+
+	@:hlNative("lime", "hl_local_socket_send") private static function lime_local_socket_send(handle:CFFIPointer, buffer:Bytes, offset:Int, length:Int):Bool
+	{
+		return false;
+	}
+
+	@:hlNative("lime", "hl_local_socket_set_max_queued") private static function lime_local_socket_set_max_queued(handle:CFFIPointer, bytes:Int):Void {}
+
+	@:hlNative("lime", "hl_local_socket_update") private static function lime_local_socket_update():Void {}
+
 	@:hlNative("lime", "hl_lzma_compress") private static function lime_lzma_compress(data:Bytes, bytes:Bytes):Bytes
 	{
 		return null;
@@ -2343,6 +2480,12 @@ class NativeCFFI
 	@:hlNative("lime", "hl_system_get_platform_version") private static function lime_system_get_platform_version():hl.Bytes
 	{
 		return null;
+	}
+
+	@:hlNative("lime", "hl_system_get_secure_random_bytes") private static function lime_system_get_secure_random_bytes(buffer:Bytes, offset:Int,
+			length:Int):Bool
+	{
+		return false;
 	}
 
 	@:hlNative("lime", "hl_system_get_timer") private static function lime_system_get_timer():Float
@@ -3214,6 +3357,9 @@ class NativeCFFI
 
 	@:hlNative("lime", "hl_window_set_text_input_rect") private static function lime_window_set_text_input_rect(handle:CFFIPointer, rect:Rectangle):Void {}
 
+	@:hlNative("lime", "hl_window_set_appearance") private static function lime_window_set_appearance(handle:CFFIPointer, appearance:Int):Void {}
+	@:hlNative("lime", "hl_window_get_appearance") private static function lime_window_get_appearance(handle:CFFIPointer):Int { return 0; }
+
 	@:hlNative("lime", "hl_window_set_title") private static function lime_window_set_title(handle:CFFIPointer, title:String):String
 	{
 		return null;
@@ -3496,6 +3642,8 @@ class NativeCFFI
 
 	@:cffi private static function lime_alc_get_string(device:CFFIPointer, param:Int):Dynamic;
 
+	@:cffi private static function lime_alc_get_string_list(device:CFFIPointer, param:Int):Dynamic;
+
 	@:cffi private static function lime_alc_make_context_current(context:CFFIPointer):Bool;
 
 	@:cffi private static function lime_alc_open_device(devicename:String):CFFIPointer;
@@ -3673,6 +3821,8 @@ class NativeCFFI
 	private static var lime_alc_get_integerv = new cpp.Callable<cpp.Object->Int->Int->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_alc_get_integerv",
 		"oiio", false));
 	private static var lime_alc_get_string = new cpp.Callable<cpp.Object->Int->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_alc_get_string", "oio", false));
+	private static var lime_alc_get_string_list = new cpp.Callable<cpp.Object->Int->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_alc_get_string_list",
+		"oio", false));
 	private static var lime_alc_make_context_current = new cpp.Callable<cpp.Object->Bool>(cpp.Prime._loadPrime("lime", "lime_alc_make_context_current", "ob",
 		false));
 	private static var lime_alc_open_device = new cpp.Callable<String->cpp.Object>(cpp.Prime._loadPrime("lime", "lime_alc_open_device", "so", false));
@@ -3804,6 +3954,7 @@ class NativeCFFI
 	private static var lime_alc_get_error = CFFI.load("lime", "lime_alc_get_error", 1);
 	private static var lime_alc_get_integerv = CFFI.load("lime", "lime_alc_get_integerv", 3);
 	private static var lime_alc_get_string = CFFI.load("lime", "lime_alc_get_string", 2);
+	private static var lime_alc_get_string_list = CFFI.load("lime", "lime_alc_get_string_list", 2);
 	private static var lime_alc_make_context_current = CFFI.load("lime", "lime_alc_make_context_current", 1);
 	private static var lime_alc_open_device = CFFI.load("lime", "lime_alc_open_device", 1);
 	private static var lime_alc_pause_device = CFFI.load("lime", "lime_alc_pause_device", 1);
@@ -4159,6 +4310,11 @@ class NativeCFFI
 	}
 
 	@:hlNative("lime", "hl_alc_get_string") private static function lime_alc_get_string(device:CFFIPointer, param:Int):hl.Bytes
+	{
+		return null;
+	}
+
+	@:hlNative("lime", "hl_alc_get_string_list") private static function lime_alc_get_string_list(device:CFFIPointer, param:Int):hl.NativeArray<hl.Bytes>
 	{
 		return null;
 	}
