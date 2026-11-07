@@ -67,7 +67,8 @@ class AudioManager
 			AudioManager.context = context;
 			setupOutputDeviceRecovery();
 
-			#if (lime_cffi && !macro && lime_openal && (ios || tvos || mac))
+			#if (lime_cffi && !macro && lime_openal)
+			// Releases the objects that were collected if nothing else gets to them
 			var timer = new Timer(100);
 			timer.run = function()
 			{
@@ -261,6 +262,12 @@ class AudioManager
 			refreshOutputDeviceRecovery();
 			NativeAudioSource.restoreAudioContextRecovery();
 			NativeVideoSource.restoreAudioContextRecovery();
+
+			// The new device starts playing, so it is paused until resume() as the old one was
+			if (__suspended)
+			{
+				suspend();
+			}
 		}
 
 		outputDeviceRecovering = false;

@@ -25,6 +25,9 @@ namespace lime {
 			virtual void* ContextLock (bool useCFFIValue);
 			virtual void ContextMakeCurrent ();
 			virtual void ContextUnlock ();
+			#ifdef LIME_CONTEXT_RECOVERY_TESTS
+			bool TestContextReplacement (bool create);
+			#endif
 			virtual void Focus ();
 			virtual void* GetContext ();
 			virtual const char* GetContextType ();
@@ -37,6 +40,8 @@ namespace lime {
 			virtual bool GetKeyboardGrab ();
 			virtual bool GetMouseLock ();
 			virtual bool GetMouseRect (int* x, int* y, int* width, int* height);
+			virtual int GetNativeHandle (void** handle, void** display);
+			static int GetNativeHandle (SDL_Window* window, void** handle, void** display);
 			virtual float GetOpacity ();
 			virtual double GetScale ();
 			virtual bool GetTextInputEnabled ();
@@ -82,6 +87,8 @@ namespace lime {
 			SDL_Window* sdlWindow;
 
 		private:
+
+			void CreateOpenGLContext ();
 
 			int activeSwapInterval;
 			SDL_GLContext context;
